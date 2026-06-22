@@ -491,8 +491,8 @@ registerThread(function()
         registerThread(function()
             while #sellQueue > 0 and autoSellEnabled do
                 local currentItemId = table.remove(sellQueue, 1)
-                debugLog("Processing Queue -> Firing SellItem for ID: " .. tostring(currentItemId))
                 
+                -- debugLog removed here to save massive FPS on mobile
                 pcall(function() 
                     sellRemote:FireServer(currentItemId) 
                 end)
@@ -521,41 +521,41 @@ registerThread(function()
     end
 
     -- Event Listener: Grabs the latest inventory payload
+    local isScanning = false -- Anti-Lag Cooldown
+
     registerConnection(invRemote.OnClientEvent:Connect(function(data)
-        debugLog("InventoryUpdated event captured!")
-        if not autoSellEnabled then 
-            debugLog("Skipping scan: Auto Sell is toggled OFF.")
+        -- Prevent the "Loop of Death": Abort if OFF, actively selling, or already scanning
+        if not autoSellEnabled or isSelling or isScanning then 
             return 
         end
         
+        isScanning = true
+        
         local foundItems = extractItems(data)
-        debugLog("Scan completed. Found " .. #foundItems .. " total items in payload.")
         
         for _, item in ipairs(foundItems) do
-            -- THE MATH FIX: Server has an extra zero (100m becomes 1b)
-            -- We divide by 10 to normalize it back to what the user typed in!
             local normalizedValue = tonumber(item.value) and (item.value / 10) or 0
             
             if selectedRarities[item.rarity] then
                 if normalizedValue <= sellThreshold then
-                    debugLog(string.format("MATCH FOUND: %s | Rarity: %s | True Value: %s (Raw: %s)", tostring(item.name), tostring(item.rarity), tostring(normalizedValue), tostring(item.value)))
+                    -- debugLogs heavily removed here to prevent mobile freezing
                     if not table.find(sellQueue, item.id) then
                         table.insert(sellQueue, item.id)
                     end
-                else
-                    debugLog(string.format("VALUE OVER LIMIT: %s [Value: %s] exceeds threshold [%s]", tostring(item.name), tostring(normalizedValue), tostring(sellThreshold)))
                 end
             end
         end
         
         -- Trigger queue execution
         if #sellQueue > 0 then
-            debugLog("Queue initialized with " .. #sellQueue .. " items. Launching worker thread...")
             processSellQueue()
         end
+
+        -- Give the phone's CPU a breather before allowing another full scan
+        task.wait(0.5)
+        isScanning = false
     end))
 end)
-
 -- === CONFIGURATION ===
 local actionsConfig = {
     -- AUTOFARM TAB
