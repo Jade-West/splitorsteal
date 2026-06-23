@@ -121,6 +121,7 @@ local function createControlButton(text, color, posOffset)
     btn.TextSize = 12
     btn.Font = Enum.Font.GothamBold
     btn.Parent = TopBar
+ 
     Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
     return btn
 end
@@ -307,7 +308,7 @@ registerConnection(AutoSellTabBtn.MouseButton1Click:Connect(function() switchTab
 registerConnection(MiscTabBtn.MouseButton1Click:Connect(function() switchTab("Misc") end))
 switchTab("AutoFarm")
 
--- === CPU/GPU OPTIMIZATION LOGIC ===
+-- === CPU/GPU OPTIMIZATION LOGIC (FIXED) ===
 local function executeContinuousFPSBoost()
     pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Level01 end)
 
@@ -334,14 +335,54 @@ local function executeContinuousFPSBoost()
                 v.Material = Enum.Material.SmoothPlastic
                 v.Reflectance = 0
                 v.CastShadow = false
-                if v.Transparency == 1 and not v.CanCollide then
-                    v.CanTouch = false
-                    v.CanQuery = false
-                end
+                -- FIX: Removed the CanTouch/CanQuery disabler that broke the Shop touch zones.
             end
         elseif v:IsA("Decal") or v:IsA("Texture") or v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Sparkles") or v:IsA("Smoke") or v:IsA("Fire") then
             v:Destroy()
         end
+    end
+end
+
+-- === ESP SYSTEM LOGIC ===
+local espObjects = {}
+local function toggleTableESP(state)
+    if state then
+        for i = 1, 12 do
+            local tableName = "Table" .. i
+            -- Safely locate the table based on the path you provided
+            local tableModel = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Tables") and workspace.Map.Tables:FindFirstChild(tableName)
+            
+            if tableModel then
+                local targetPart = tableModel:IsA("Model") and tableModel.PrimaryPart or tableModel:FindFirstChildWhichIsA("BasePart") or tableModel
+                if targetPart and targetPart:IsA("BasePart") then
+                    local bgui = Instance.new("BillboardGui")
+                    bgui.Name = "ESP_" .. tableName
+                    bgui.AlwaysOnTop = true
+                    bgui.Size = UDim2.new(0, 50, 0, 50)
+                    bgui.StudsOffset = Vector3.new(0, 6, 0)
+                    
+                    local txt = Instance.new("TextLabel")
+                    txt.Size = UDim2.new(1, 0, 1, 0)
+                    txt.BackgroundTransparency = 1
+                    txt.Text = tostring(i)
+                    txt.TextColor3 = Color3.fromRGB(0, 255, 150)
+                    txt.Font = Enum.Font.GothamBlack
+                    txt.TextScaled = true
+                    txt.TextStrokeTransparency = 0
+                    txt.Parent = bgui
+                    
+                    bgui.Parent = targetPart
+                    table.insert(espObjects, bgui)
+                end
+            end
+        end
+    else
+        for _, bgui in ipairs(espObjects) do
+            if bgui and bgui.Parent then
+                bgui:Destroy()
+            end
+        end
+        espObjects = {}
     end
 end
 
@@ -369,7 +410,6 @@ AutoSellList.SortOrder = Enum.SortOrder.LayoutOrder
 AutoSellList.Padding = UDim.new(0, 8)
 AutoSellList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
--- Helper to parse '1m', '2.5b' to numbers
 local function parseValue(str)
     str = tostring(str):lower():gsub(",", ""):gsub(" ", "")
     local multi = 1
@@ -402,7 +442,6 @@ registerConnection(MasterSellBtn.MouseButton1Click:Connect(function()
         MasterSellBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 110)
         MasterSellBtn.TextColor3 = Color3.fromRGB(20, 35, 20)
         MasterSellStroke.Color = Color3.fromRGB(0, 200, 110)
-        debugLog("Auto Sell turned ON.")
     else
         MasterSellBtn.Text = "Smart Auto Sell: OFF"
         MasterSellBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
@@ -410,7 +449,6 @@ registerConnection(MasterSellBtn.MouseButton1Click:Connect(function()
         MasterSellStroke.Color = Color3.fromRGB(50, 50, 60)
         sellQueue = {}
         isSelling = false
-        debugLog("Auto Sell turned OFF. Queue cleared.")
     end
 end))
 
@@ -430,7 +468,6 @@ Instance.new("UIStroke", ThresholdBox).Color = Color3.fromRGB(50, 50, 60)
 registerConnection(ThresholdBox.FocusLost:Connect(function()
     sellThreshold = parseValue(ThresholdBox.Text)
     ThresholdBox.Text = "Max Value: " .. string.format("%.0f", sellThreshold)
-    debugLog("Threshold set to: " .. sellThreshold)
 end))
 
 local RarityGridContainer = Instance.new("Frame")
@@ -466,12 +503,10 @@ for i, rarity in ipairs(allRarities) do
             rBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
             rBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
             rStroke.Color = Color3.fromRGB(0, 150, 200)
-            debugLog("Selected Rarity: " .. rarity)
         else
             rBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
             rBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
             rStroke.Color = Color3.fromRGB(50, 50, 60)
-            debugLog("Deselected Rarity: " .. rarity)
         end
     end))
 end
@@ -481,9 +516,6 @@ registerThread(function()
     local invRemote = RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("InventoryUpdated")
     local sellRemote = RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("SellItem")
 
-    debugLog("Remote listeners attached. Awaiting InventoryUpdated event.")
-
-    -- Processor Function: Sells items one by one with a delay
     local function processSellQueue()
         if isSelling then return end
         isSelling = true
@@ -491,19 +523,13 @@ registerThread(function()
         registerThread(function()
             while #sellQueue > 0 and autoSellEnabled do
                 local currentItemId = table.remove(sellQueue, 1)
-                
-                -- debugLog removed here to save massive FPS on mobile
-                pcall(function() 
-                    sellRemote:FireServer(currentItemId) 
-                end)
-                
+                pcall(function() sellRemote:FireServer(currentItemId) end)
                 task.wait(0.15) 
             end
             isSelling = false
         end)
     end
 
-    -- Deep-Scanner to grab all valid items no matter how the payload table is nested
     local function extractItems(payload)
         local itemsList = {}
         local function scan(t, depth)
@@ -520,47 +546,33 @@ registerThread(function()
         return itemsList
     end
 
-    -- Event Listener: Grabs the latest inventory payload
-    local isScanning = false -- Anti-Lag Cooldown
-
     registerConnection(invRemote.OnClientEvent:Connect(function(data)
-        -- Prevent the "Loop of Death": Abort if OFF, actively selling, or already scanning
-        if not autoSellEnabled or isSelling or isScanning then 
-            return 
-        end
-        
-        isScanning = true
-        
+        if not autoSellEnabled then return end
         local foundItems = extractItems(data)
         
         for _, item in ipairs(foundItems) do
             local normalizedValue = tonumber(item.value) and (item.value / 10) or 0
-            
             if selectedRarities[item.rarity] then
                 if normalizedValue <= sellThreshold then
-                    -- debugLogs heavily removed here to prevent mobile freezing
                     if not table.find(sellQueue, item.id) then
                         table.insert(sellQueue, item.id)
                     end
                 end
             end
         end
-        
-        -- Trigger queue execution
         if #sellQueue > 0 then
             processSellQueue()
         end
-
-        -- Give the phone's CPU a breather before allowing another full scan
-        task.wait(0.5)
-        isScanning = false
     end))
 end)
+
 -- === CONFIGURATION ===
+local selectedPlayTable = "Table2" -- Default dropdown value
+
 local actionsConfig = {
     -- AUTOFARM TAB
     { Tab = AutoFarmContainer, Name = "Auto Split", Delay = 0.1, Action = function() RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Tables"):WaitForChild("DecisionRequest"):FireServer("Split") end },
-    { Tab = AutoFarmContainer, Name = "Play Again", Delay = 0.1, Action = function() RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("PlayAgainRequest"):FireServer("Table2") end },
+    { Tab = AutoFarmContainer, Name = "Play Again", Delay = 0.1, IsPlayAgain = true, Action = function() RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("PlayAgainRequest"):FireServer(selectedPlayTable) end },
     { Tab = AutoFarmContainer, Name = "Auto Jump", Delay = 6, Action = function() VIM:SendKeyEvent(true, Enum.KeyCode.Space, false, game); task.wait(0.05); VIM:SendKeyEvent(false, Enum.KeyCode.Space, false, game) end },
     { Tab = AutoFarmContainer, Name = "Sell Celestial", Delay = 5, Action = function() RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("QuickSellRarity"):FireServer("Celestial") end },
     { Tab = AutoFarmContainer, Name = "Sell Divine", Delay = 5, Action = function() RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("QuickSellRarity"):FireServer("Divine") end },
@@ -574,6 +586,7 @@ local actionsConfig = {
     end },
     
     -- MISC TAB
+    { Tab = MiscContainer, Name = "Table ESP", IsToggleCustom = true, Action = toggleTableESP },
     { Tab = MiscContainer, Name = "Auto FPS Boost", Delay = 15, Action = executeContinuousFPSBoost }
 }
 
@@ -600,6 +613,75 @@ for _, config in ipairs(actionsConfig) do
     btn.BackgroundColor3 = offColor
     btn.Text = config.Name
     btn.TextColor3 = offTextColor
+
+    -- Custom Logic for Table ESP Toggle
+    if config.IsToggleCustom then
+        local state = false
+        registerConnection(btn.MouseButton1Click:Connect(function()
+            state = not state
+            btn.BackgroundColor3 = state and onColor or offColor
+            btn.TextColor3 = state and onTextColor or offTextColor
+            btnStroke.Color = state and onColor or Color3.fromRGB(50, 50, 60)
+            pcall(function() config.Action(state) end)
+        end))
+        continue
+    end
+
+    -- Inject Dynamic Dropdown inside the "Play Again" button
+    if config.IsPlayAgain then
+        local dropBtn = Instance.new("TextButton")
+        dropBtn.Size = UDim2.new(0, 30, 1, -10)
+        dropBtn.Position = UDim2.new(1, -35, 0, 5)
+        dropBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+        dropBtn.Text = "T2"
+        dropBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        dropBtn.Font = Enum.Font.GothamBold
+        dropBtn.TextSize = 11
+        dropBtn.ZIndex = 5
+        Instance.new("UICorner", dropBtn).CornerRadius = UDim.new(0, 4)
+        dropBtn.Parent = btn
+        
+        -- Parent the list to MainFrame so it renders ON TOP of everything without getting clipped by the scrolling frame
+        local listFrame = Instance.new("ScrollingFrame")
+        listFrame.Size = UDim2.new(0, 45, 0, 110)
+        listFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+        listFrame.BorderSizePixel = 0
+        listFrame.ScrollBarThickness = 2
+        listFrame.ZIndex = 50
+        listFrame.Visible = false
+        listFrame.Parent = MainFrame 
+        
+        local listLayout = Instance.new("UIListLayout", listFrame)
+        listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        
+        for i = 1, 12 do
+            local opt = Instance.new("TextButton")
+            opt.Size = UDim2.new(1, 0, 0, 22)
+            opt.BackgroundTransparency = 1
+            opt.Text = tostring(i)
+            opt.TextColor3 = Color3.fromRGB(200, 200, 200)
+            opt.Font = Enum.Font.GothamSemibold
+            opt.TextSize = 11
+            opt.ZIndex = 51
+            opt.Parent = listFrame
+            
+            registerConnection(opt.MouseButton1Click:Connect(function()
+                selectedPlayTable = "Table" .. i
+                dropBtn.Text = "T" .. i
+                listFrame.Visible = false
+            end))
+        end
+        
+        registerConnection(dropBtn.MouseButton1Click:Connect(function()
+            listFrame.Visible = not listFrame.Visible
+            if listFrame.Visible then
+                -- Dynamically snap menu to button based on screen position
+                local absPos = dropBtn.AbsolutePosition
+                local mainPos = MainFrame.AbsolutePosition
+                listFrame.Position = UDim2.new(0, (absPos.X - mainPos.X) - 5, 0, (absPos.Y - mainPos.Y) + dropBtn.AbsoluteSize.Y + 2)
+            end
+        end))
+    end
 
     local looping = false
     local activeThread = nil 
