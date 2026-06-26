@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local RS = game:GetService("ReplicatedStorage")
 local VIM = game:GetService("VirtualInputManager")
+local MarketplaceService = game:GetService("MarketplaceService")
 local LocalPlayer = Players.LocalPlayer
 
 -- === CONSOLE DEBUG LOGGER ===
@@ -121,7 +122,6 @@ local function createControlButton(text, color, posOffset)
     btn.TextSize = 12
     btn.Font = Enum.Font.GothamBold
     btn.Parent = TopBar
- 
     Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
     return btn
 end
@@ -335,7 +335,6 @@ local function executeContinuousFPSBoost()
                 v.Material = Enum.Material.SmoothPlastic
                 v.Reflectance = 0
                 v.CastShadow = false
-                -- FIX: Removed the CanTouch/CanQuery disabler that broke the Shop touch zones.
             end
         elseif v:IsA("Decal") or v:IsA("Texture") or v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Sparkles") or v:IsA("Smoke") or v:IsA("Fire") then
             v:Destroy()
@@ -349,7 +348,6 @@ local function toggleTableESP(state)
     if state then
         for i = 1, 12 do
             local tableName = "Table" .. i
-            -- Safely locate the table based on the path you provided
             local tableModel = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Tables") and workspace.Map.Tables:FindFirstChild(tableName)
             
             if tableModel then
@@ -398,6 +396,14 @@ local allRarities = {
     "Event", "Secret", "Divine", "Cosmic", "Celestial", "Brainrot God"
 }
 
+-- Check for 2X Cash Gamepass
+local hasDoubleCash = false
+local GAME_PASS_ID = 1784980407
+
+pcall(function()
+    hasDoubleCash = MarketplaceService:UserOwnsGamePassAsync(LocalPlayer.UserId, GAME_PASS_ID)
+end)
+
 -- Layout for AutoSell Tab
 local AutoSellPadding = Instance.new("UIPadding", AutoSellContainer)
 AutoSellPadding.PaddingTop = UDim.new(0, 5)
@@ -409,6 +415,19 @@ local AutoSellList = Instance.new("UIListLayout", AutoSellContainer)
 AutoSellList.SortOrder = Enum.SortOrder.LayoutOrder
 AutoSellList.Padding = UDim.new(0, 8)
 AutoSellList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+-- If they have the gamepass, show the indicator at the top
+if hasDoubleCash then
+    local PassIndicator = Instance.new("TextLabel")
+    PassIndicator.Size = UDim2.new(1, 0, 0, 15)
+    PassIndicator.LayoutOrder = 0 
+    PassIndicator.BackgroundTransparency = 1
+    PassIndicator.Text = "✨ 2X Cash Gamepass Calculated ✨"
+    PassIndicator.TextColor3 = Color3.fromRGB(255, 170, 0)
+    PassIndicator.Font = Enum.Font.GothamBold
+    PassIndicator.TextSize = 11
+    PassIndicator.Parent = AutoSellContainer
+end
 
 local function parseValue(str)
     str = tostring(str):lower():gsub(",", ""):gsub(" ", "")
@@ -551,7 +570,12 @@ registerThread(function()
         local foundItems = extractItems(data)
         
         for _, item in ipairs(foundItems) do
-            local normalizedValue = tonumber(item.value) and (item.value / 10) or 0
+            -- Base calculation: remove the extra zero
+            local baseValue = tonumber(item.value) and (item.value / 10) or 0
+            
+            -- Apply the 2x visual multiplier if they own the gamepass
+            local normalizedValue = hasDoubleCash and (baseValue * 2) or baseValue
+            
             if selectedRarities[item.rarity] then
                 if normalizedValue <= sellThreshold then
                     if not table.find(sellQueue, item.id) then
