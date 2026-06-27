@@ -65,8 +65,8 @@ end))
 -- === PREMIUM UI MAIN STRUCTURE ===
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 320, 0, 320) -- Increased height slightly for the cool config menu
-MainFrame.Position = UDim2.new(0.5, -160, 0.5, -160)
+MainFrame.Size = UDim2.new(0, 320, 0, 360) -- Slightly taller for the permanent config list
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -180)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20) 
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
@@ -199,8 +199,8 @@ PopupFrame.Visible = false
 PopupFrame.Parent = MainFrame
 
 local PopupBox = Instance.new("Frame")
-PopupBox.Size = UDim2.new(0.8, 0, 0.5, 0)
-PopupBox.Position = UDim2.new(0.1, 0, 0.25, 0)
+PopupBox.Size = UDim2.new(0.85, 0, 0.45, 0)
+PopupBox.Position = UDim2.new(0.075, 0, 0.275, 0)
 PopupBox.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 PopupBox.ZIndex = 101
 PopupBox.Parent = PopupFrame
@@ -208,7 +208,8 @@ Instance.new("UICorner", PopupBox).CornerRadius = UDim.new(0, 8)
 Instance.new("UIStroke", PopupBox).Color = Color3.fromRGB(60, 60, 70)
 
 local PopupTitle = Instance.new("TextLabel")
-PopupTitle.Size = UDim2.new(1, 0, 0.5, 0)
+PopupTitle.Size = UDim2.new(0.9, 0, 0.5, 0)
+PopupTitle.Position = UDim2.new(0.05, 0, 0.05, 0)
 PopupTitle.BackgroundTransparency = 1
 PopupTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 PopupTitle.Font = Enum.Font.GothamBold
@@ -316,7 +317,6 @@ local AutoFarmContainer = createContainer("AutoFarmContainer")
 local AutoSellContainer = createContainer("AutoSellContainer")
 local MiscContainer = createContainer("MiscContainer")
 
--- Setup Layouts for Farm and Sell Tabs
 for _, cont in ipairs({AutoFarmContainer, AutoSellContainer}) do
     local UIPadding = Instance.new("UIPadding")
     UIPadding.PaddingTop = UDim.new(0, 5)
@@ -331,7 +331,6 @@ AutoFarmGrid.CellPadding = UDim2.new(0, 8, 0, 8)
 AutoFarmGrid.SortOrder = Enum.SortOrder.LayoutOrder
 AutoFarmGrid.Parent = AutoFarmContainer
 
--- Structure for Misc Tab (Split between Toggles and Config)
 local MiscLayout = Instance.new("UIListLayout", MiscContainer)
 MiscLayout.SortOrder = Enum.SortOrder.LayoutOrder
 MiscLayout.Padding = UDim.new(0, 10)
@@ -391,7 +390,7 @@ registerConnection(MinimizeBtn.MouseButton1Click:Connect(function()
         BottomBar.Visible = false
         TS:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 320, 0, 35)}):Play()
     else
-        TS:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 320, 0, 320)}):Play()
+        TS:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 320, 0, 360)}):Play()
         task.wait(0.2) 
         TabBar.Visible = true
         BottomBar.Visible = true
@@ -944,43 +943,30 @@ ConfigNameBox.Font = Enum.Font.GothamSemibold
 ConfigNameBox.TextSize = 12
 ConfigNameBox.TextXAlignment = Enum.TextXAlignment.Left
 
--- Dropdown Menu (Animated)
-local DropdownContainer = Instance.new("Frame", ConfigSection)
-DropdownContainer.Size = UDim2.new(1, -10, 0, 0)
-DropdownContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-DropdownContainer.ClipsDescendants = true
-Instance.new("UICorner", DropdownContainer).CornerRadius = UDim.new(0, 6)
-local DropdownStroke = Instance.new("UIStroke", DropdownContainer)
-DropdownStroke.Color = Color3.fromRGB(50, 50, 60)
-DropdownStroke.Transparency = 1
+-- Permanent List Container
+local ListContainer = Instance.new("Frame", ConfigSection)
+ListContainer.Size = UDim2.new(1, -10, 0, 110)
+ListContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+ListContainer.ClipsDescendants = true
+Instance.new("UICorner", ListContainer).CornerRadius = UDim.new(0, 6)
+Instance.new("UIStroke", ListContainer).Color = Color3.fromRGB(50, 50, 60)
 
-local DropdownScroll = Instance.new("ScrollingFrame", DropdownContainer)
-DropdownScroll.Size = UDim2.new(1, 0, 1, 0)
-DropdownScroll.BackgroundTransparency = 1
-DropdownScroll.BorderSizePixel = 0
-DropdownScroll.ScrollBarThickness = 2
-DropdownScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-DropdownScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+local ListScroll = Instance.new("ScrollingFrame", ListContainer)
+ListScroll.Size = UDim2.new(1, 0, 1, 0)
+ListScroll.BackgroundTransparency = 1
+ListScroll.BorderSizePixel = 0
+ListScroll.ScrollBarThickness = 3
+ListScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+ListScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 
-local DropdownListLayout = Instance.new("UIListLayout", DropdownScroll)
-DropdownListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+local ListLayout = Instance.new("UIListLayout", ListScroll)
+ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
-local function closeDropdown()
-    TS:Create(DropdownContainer, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {Size = UDim2.new(1, -10, 0, 0)}):Play()
-    DropdownStroke.Transparency = 1
-end
-
-local function openDropdown()
-    TS:Create(DropdownContainer, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(1, -10, 0, 100)}):Play()
-    DropdownStroke.Transparency = 0
-end
-
-local configButtons = {}
+local configListItems = {}
 
 local function refreshConfigList(filterText)
-    -- Clear old list
-    for _, btn in ipairs(configButtons) do btn:Destroy() end
-    configButtons = {}
+    for _, item in ipairs(configListItems) do item:Destroy() end
+    configListItems = {}
     
     if not listfiles then return end
     
@@ -989,55 +975,99 @@ local function refreshConfigList(filterText)
         local files = listfiles(CONFIG_FOLDER)
         
         for _, path in ipairs(files) do
-            -- Extract filename from path
             local fileName = string.match(path, "[^\\/]+$")
             if fileName and fileName:match("%.json$") then
                 local cleanName = fileName:gsub("%.json$", "")
                 
-                -- Apply search filter
                 if not filterText or filterText == "" or string.lower(cleanName):match(string.lower(filterText)) then
-                    local btn = Instance.new("TextButton", DropdownScroll)
-                    btn.Size = UDim2.new(1, 0, 0, 25)
-                    btn.BackgroundTransparency = 1
-                    btn.Text = "  " .. cleanName
-                    btn.TextColor3 = Color3.fromRGB(200, 200, 200)
-                    btn.Font = Enum.Font.GothamMedium
-                    btn.TextSize = 12
-                    btn.TextXAlignment = Enum.TextXAlignment.Left
+                    local itemFrame = Instance.new("Frame", ListScroll)
+                    itemFrame.Size = UDim2.new(1, 0, 0, 26)
+                    itemFrame.BackgroundTransparency = 1
                     
-                    registerConnection(btn.MouseButton1Click:Connect(function()
+                    local selectBtn = Instance.new("TextButton", itemFrame)
+                    selectBtn.Size = UDim2.new(1, -30, 1, 0)
+                    selectBtn.BackgroundTransparency = 1
+                    selectBtn.Text = "  " .. cleanName
+                    selectBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+                    selectBtn.Font = Enum.Font.GothamMedium
+                    selectBtn.TextSize = 12
+                    selectBtn.TextXAlignment = Enum.TextXAlignment.Left
+                    
+                    local delBtn = Instance.new("TextButton", itemFrame)
+                    delBtn.Size = UDim2.new(0, 20, 0, 20)
+                    delBtn.Position = UDim2.new(1, -25, 0, 3)
+                    delBtn.BackgroundColor3 = Color3.fromRGB(255, 75, 75)
+                    delBtn.Text = "X"
+                    delBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    delBtn.Font = Enum.Font.GothamBold
+                    delBtn.TextSize = 10
+                    Instance.new("UICorner", delBtn).CornerRadius = UDim.new(0, 4)
+                    
+                    registerConnection(selectBtn.MouseButton1Click:Connect(function()
                         ConfigNameBox.Text = cleanName
-                        closeDropdown()
                     end))
                     
-                    registerConnection(btn.MouseEnter:Connect(function() btn.TextColor3 = Color3.fromRGB(0, 200, 110) end))
-                    registerConnection(btn.MouseLeave:Connect(function() btn.TextColor3 = Color3.fromRGB(200, 200, 200) end))
+                    registerConnection(delBtn.MouseButton1Click:Connect(function()
+                        ShowPopup("Delete config '" .. cleanName .. "'?", function(confirmed)
+                            if confirmed then
+                                pcall(function() delfile(CONFIG_FOLDER .. "/" .. fileName) end)
+                                refreshConfigList(ConfigNameBox.Text)
+                            end
+                        end)
+                    end))
                     
-                    table.insert(configButtons, btn)
+                    registerConnection(selectBtn.MouseEnter:Connect(function() selectBtn.TextColor3 = Color3.fromRGB(0, 200, 110) end))
+                    registerConnection(selectBtn.MouseLeave:Connect(function() selectBtn.TextColor3 = Color3.fromRGB(200, 200, 200) end))
+                    
+                    table.insert(configListItems, itemFrame)
                 end
             end
         end
     end)
 end
 
--- Hook up Search/Dropdown triggers
-registerConnection(ConfigNameBox.Focused:Connect(function()
-    refreshConfigList(ConfigNameBox.Text)
-    openDropdown()
-    SearchStroke.Color = Color3.fromRGB(0, 200, 110)
-end))
+-- Refresh List Hooks
+registerConnection(ConfigNameBox.Focused:Connect(function() SearchStroke.Color = Color3.fromRGB(0, 200, 110) end))
+registerConnection(ConfigNameBox.FocusLost:Connect(function() SearchStroke.Color = Color3.fromRGB(50, 50, 60) end))
+registerConnection(ConfigNameBox:GetPropertyChangedSignal("Text"):Connect(function() refreshConfigList(ConfigNameBox.Text) end))
 
-registerConnection(ConfigNameBox.FocusLost:Connect(function(enterPressed)
-    SearchStroke.Color = Color3.fromRGB(50, 50, 60)
-    -- Small delay so click registers before closing
-    task.delay(0.15, function() closeDropdown() end) 
-end))
+-- Central Loading Function
+local function loadConfigData(name, autoEnableSell)
+    pcall(function()
+        local json = readfile(CONFIG_FOLDER .. "/" .. name .. ".json")
+        local data = HttpService:JSONDecode(json)
+        
+        if data.SellThreshold then
+            sellThreshold = data.SellThreshold
+            ThresholdBox.Text = "Max Value: " .. formatNumberForDisplay(sellThreshold)
+        end
+        if data.Rarities then
+            for r, state in pairs(data.Rarities) do
+                updateRarityVisuals(r, state)
+            end
+        end
+        if data.Toggles then
+            for tName, state in pairs(data.Toggles) do
+                if toggleFunctions[tName] then
+                    toggleFunctions[tName](state)
+                end
+            end
+        end
+        
+        if autoEnableSell and sellThreshold > 0 then
+            autoSellEnabled = true
+            MasterSellBtn.Text = "Smart Auto Sell: ON"
+            MasterSellBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 110)
+            MasterSellBtn.TextColor3 = Color3.fromRGB(20, 35, 20)
+            MasterSellStroke.Color = Color3.fromRGB(0, 200, 110)
+        end
+        
+        ShowPopup("Loaded Config: " .. name, function() end)
+        ConfigNameBox.Text = name
+    end)
+end
 
-registerConnection(ConfigNameBox:GetPropertyChangedSignal("Text"):Connect(function()
-    refreshConfigList(ConfigNameBox.Text)
-end))
-
--- Buttons Container
+-- Action Buttons
 local ActionBtnContainer = Instance.new("Frame", ConfigSection)
 ActionBtnContainer.Size = UDim2.new(1, -10, 0, 34)
 ActionBtnContainer.BackgroundTransparency = 1
@@ -1063,7 +1093,7 @@ Instance.new("UICorner", LoadBtn).CornerRadius = UDim.new(0, 6)
 
 registerConnection(SaveBtn.MouseButton1Click:Connect(function()
     if not writefile then 
-        ShowPopup("Your executor does not support saving files!", function() end)
+        ShowPopup("Your executor does not support saving!", function() end)
         return 
     end
     
@@ -1080,7 +1110,7 @@ registerConnection(SaveBtn.MouseButton1Click:Connect(function()
         if not isfolder(CONFIG_FOLDER) then makefolder(CONFIG_FOLDER) end
         writefile(CONFIG_FOLDER .. "/" .. name .. ".json", HttpService:JSONEncode(data))
         ShowPopup("Saved Config: " .. name, function() end)
-        refreshConfigList() -- Update list after saving
+        refreshConfigList() 
     end)
 end))
 
@@ -1088,27 +1118,34 @@ registerConnection(LoadBtn.MouseButton1Click:Connect(function()
     if not readfile then return end
     local name = ConfigNameBox.Text
     if name == "" then name = "Default" end
-    
+    loadConfigData(name, false)
+end))
+
+-- === INITIALIZATION & AUTO-LOAD LOGIC ===
+refreshConfigList()
+
+task.spawn(function()
+    task.wait(1) -- Let the UI settle before throwing popups
+    if not listfiles then return end
     pcall(function()
-        local json = readfile(CONFIG_FOLDER .. "/" .. name .. ".json")
-        local data = HttpService:JSONDecode(json)
+        if not isfolder(CONFIG_FOLDER) then return end
         
-        if data.SellThreshold then
-            sellThreshold = data.SellThreshold
-            ThresholdBox.Text = "Max Value: " .. formatNumberForDisplay(sellThreshold)
-        end
-        if data.Rarities then
-            for r, state in pairs(data.Rarities) do
-                updateRarityVisuals(r, state)
-            end
-        end
-        if data.Toggles then
-            for tName, state in pairs(data.Toggles) do
-                if toggleFunctions[tName] then
-                    toggleFunctions[tName](state)
+        local numberConfigs = {}
+        for _, path in ipairs(listfiles(CONFIG_FOLDER)) do
+            local fileName = string.match(path, "[^\\/]+$")
+            if fileName and fileName:match("%.json$") then
+                local cleanName = fileName:gsub("%.json$", "")
+                -- Matches purely numeric strings or numbers with k, m, b, t suffixes
+                if cleanName:match("^%d+%.?%d*[kmbtKMBT]?$") then
+                    table.insert(numberConfigs, cleanName)
                 end
             end
         end
-        ShowPopup("Loaded Config: " .. name, function() end)
+        
+        if #numberConfigs > 1 then
+            ShowPopup("Error: Multiple auto-load configs found (" .. table.concat(numberConfigs, ", ") .. "). Delete all but one!", function() end)
+        elseif #numberConfigs == 1 then
+            loadConfigData(numberConfigs[1], true) -- true triggers autoSellEnabled
+        end
     end)
-end))
+end)
