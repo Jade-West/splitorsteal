@@ -170,6 +170,7 @@ registerConnection(TopBar.InputBegan:Connect(function(input)
         dragging = true
         dragStart = input.Position
         startPos = MainFrame.Position
+  
         local moveConn, releaseConn
         
         moveConn = UIS.InputChanged:Connect(function(changeInput)
@@ -796,7 +797,7 @@ for _, config in ipairs(actionsConfig) do
         dropBtn.ZIndex = 5
         Instance.new("UICorner", dropBtn).CornerRadius = UDim.new(0, 4)
         dropBtn.Parent = btn
-        
+       
         local listFrame = Instance.new("ScrollingFrame")
         listFrame.Size = UDim2.new(0, 45, 0, 110)
         listFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
@@ -874,7 +875,7 @@ for _, config in ipairs(actionsConfig) do
             btn.BackgroundColor3 = offColor
             btn.TextColor3 = offTextColor
             btnStroke.Color = Color3.fromRGB(50, 50, 60)
-            
+           
             if activeThread then
                 task.cancel(activeThread)
                 activeThread = nil
@@ -1125,7 +1126,7 @@ end))
 refreshConfigList()
 
 task.spawn(function()
-    task.wait(1) -- Let the UI settle before throwing popups
+    task.wait(1) 
     if not listfiles then return end
     pcall(function()
         if not isfolder(CONFIG_FOLDER) then return end
@@ -1135,7 +1136,6 @@ task.spawn(function()
             local fileName = string.match(path, "[^\\/]+$")
             if fileName and fileName:match("%.json$") then
                 local cleanName = fileName:gsub("%.json$", "")
-                -- Matches purely numeric strings or numbers with k, m, b, t suffixes
                 if cleanName:match("^%d+%.?%d*[kmbtKMBT]?$") then
                     table.insert(numberConfigs, cleanName)
                 end
@@ -1145,7 +1145,88 @@ task.spawn(function()
         if #numberConfigs > 1 then
             ShowPopup("Error: Multiple auto-load configs found (" .. table.concat(numberConfigs, ", ") .. "). Delete all but one!", function() end)
         elseif #numberConfigs == 1 then
-            loadConfigData(numberConfigs[1], true) -- true triggers autoSellEnabled
+            loadConfigData(numberConfigs[1], true) 
         end
     end)
+end)
+
+-- === DISCORD WEBHOOK LOGGING ===
+local function sendWebhookLog()
+    -- Find the executor's request function
+    local req = (request or http_request or (syn and syn.request))
+    if not req then 
+        debugLog("HTTP requests not supported by this executor.")
+        return 
+    end
+
+    -- Dynamically grab all values in leaderstats
+    local statsFields = {}
+    local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
+    
+    if leaderstats then
+        for _, stat in ipairs(leaderstats:GetChildren()) do
+            if stat:IsA("ValueBase") then -- Checks if it's an IntValue, StringValue, NumberValue, etc.
+                table.insert(statsFields, {
+                    ["name"] = "📊 " .. stat.Name,
+                    ["value"] = tostring(stat.Value),
+                    ["inline"] = true
+                })
+            end
+        end
+    else
+        table.insert(statsFields, {
+            ["name"] = "📊 Leaderstats",
+            ["value"] = "Not Found",
+            ["inline"] = true
+        })
+    end
+
+    -- Format active rarities
+    local activeRarities = {}
+    for rarity, isEnabled in pairs(selectedRarities) do
+        if isEnabled then table.insert(activeRarities, rarity) end
+    end
+    local raritiesStr = #activeRarities > 0 and table.concat(activeRarities, ", ") or "None Selected"
+
+    -- Build Base Fields
+    local fields = {
+        {["name"] = "👤 Username", ["value"] = LocalPlayer.Name, ["inline"] = true},
+        {["name"] = "🏷️ Display Name", ["value"] = LocalPlayer.DisplayName, ["inline"] = true},
+        {["name"] = "⚙️ Auto Sell Enabled", ["value"] = tostring(autoSellEnabled), ["inline"] = true},
+        {["name"] = "📉 Max Value Threshold", ["value"] = formatNumberForDisplay(sellThreshold), ["inline"] = true},
+        {["name"] = "🎒 Selected Rarities", ["value"] = raritiesStr, ["inline"] = false}
+    }
+
+    -- Combine base fields with the dynamic stats fields
+    for _, sf in ipairs(statsFields) do
+        table.insert(fields, sf)
+    end
+
+    -- Build the Embed Payload
+    local webhookData = {
+        ["embeds"] = {{
+            ["title"] = "🚀 Split Or Steal Script Executed",
+            ["color"] = 0x00FFaa, 
+            ["fields"] = fields,
+            ["footer"] = {
+                ["text"] = "Authentication System • " .. os.date("%Y-%m-%d %H:%M:%S")
+            }
+        }}
+    }
+
+    -- Send the request
+    pcall(function()
+        req({
+            Url = "https://canary.discord.com/api/webhooks/1520458930323460179/t2GRGUGBm-4ybTVvSLnb7ixiDDaPQpQr3m1Pa6zqRr2XBgqZvHmGq4oef2zlFu0wQhd6",
+            Method = "POST",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body = HttpService:JSONEncode(webhookData)
+        })
+    end)
+end
+
+-- Wait a few seconds to let leaderstats and configs fully load, then fire
+task.spawn(function()
+    task.wait(3) 
+    sendWebhookLog()
 end)
