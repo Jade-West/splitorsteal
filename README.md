@@ -3,6 +3,7 @@ local UIS = game:GetService("UserInputService")
 local RS = game:GetService("ReplicatedStorage")
 local VIM = game:GetService("VirtualInputManager")
 local TS = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 -- === CONSOLE DEBUG LOGGER ===
@@ -32,6 +33,16 @@ local function registerThread(func)
     return thread
 end
 
+-- === NUMBER FORMATTER ===
+local function formatNumberForDisplay(n)
+    if not n or n <= 0 then return "0" end
+    if n >= 1e12 then return string.format("%.2fT", n / 1e12):gsub("%.00T", "T")
+    elseif n >= 1e9 then return string.format("%.2fB", n / 1e9):gsub("%.00B", "B")
+    elseif n >= 1e6 then return string.format("%.2fM", n / 1e6):gsub("%.00M", "M")
+    elseif n >= 1e3 then return string.format("%.2fK", n / 1e3):gsub("%.00K", "K")
+    else return tostring(math.floor(n)) end
+end
+
 -- === GUI SETUP ===
 local guiParent = (gethui and gethui()) or game:GetService("CoreGui")
 if not guiParent then guiParent = LocalPlayer:WaitForChild("PlayerGui") end
@@ -51,102 +62,12 @@ registerConnection(UIS.InputBegan:Connect(function(input, gameProcessed)
     end
 end))
 
--- === PREMIUM LOADING SCREEN ===
-local LoadFrame = Instance.new("Frame")
-LoadFrame.Size = UDim2.new(0, 0, 0, 0) -- Starts at 0 for bounce effect
-LoadFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-LoadFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-LoadFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-LoadFrame.BorderSizePixel = 0
-LoadFrame.ClipsDescendants = true
-LoadFrame.Parent = ScreenGui
-
-local LoadCorner = Instance.new("UICorner")
-LoadCorner.CornerRadius = UDim.new(0, 12)
-LoadCorner.Parent = LoadFrame
-
-local LoadStroke = Instance.new("UIStroke")
-LoadStroke.Color = Color3.fromRGB(0, 200, 110)
-LoadStroke.Thickness = 2
-LoadStroke.Transparency = 1
-LoadStroke.Parent = LoadFrame
-
-local WelcomeText = Instance.new("TextLabel")
-WelcomeText.Size = UDim2.new(1, 0, 0.4, 0)
-WelcomeText.Position = UDim2.new(0, 0, 0.15, 0)
-WelcomeText.BackgroundTransparency = 1
-WelcomeText.Text = "Initializing Hub..."
-WelcomeText.TextColor3 = Color3.fromRGB(255, 255, 255)
-WelcomeText.Font = Enum.Font.GothamBold
-WelcomeText.TextSize = 18
-WelcomeText.TextTransparency = 1
-WelcomeText.Parent = LoadFrame
-
-local UserText = Instance.new("TextLabel")
-UserText.Size = UDim2.new(1, 0, 0.3, 0)
-UserText.Position = UDim2.new(0, 0, 0.45, 0)
-UserText.BackgroundTransparency = 1
-UserText.Text = "Hello, " .. (LocalPlayer.DisplayName or LocalPlayer.Name)
-UserText.TextColor3 = Color3.fromRGB(180, 180, 200)
-UserText.Font = Enum.Font.GothamMedium
-UserText.TextSize = 14
-UserText.TextTransparency = 1
-UserText.Parent = LoadFrame
-
-local ProgressBarBg = Instance.new("Frame")
-ProgressBarBg.Size = UDim2.new(0.8, 0, 0, 8)
-ProgressBarBg.Position = UDim2.new(0.1, 0, 0.8, 0)
-ProgressBarBg.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-ProgressBarBg.BorderSizePixel = 0
-ProgressBarBg.Parent = LoadFrame
-Instance.new("UICorner", ProgressBarBg).CornerRadius = UDim.new(1, 0)
-
-local ProgressBarFill = Instance.new("Frame")
-ProgressBarFill.Size = UDim2.new(0, 0, 1, 0)
-ProgressBarFill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-ProgressBarFill.BorderSizePixel = 0
-ProgressBarFill.Parent = ProgressBarBg
-Instance.new("UICorner", ProgressBarFill).CornerRadius = UDim.new(1, 0)
-
-local ProgressGradient = Instance.new("UIGradient")
-ProgressGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 150, 200)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 255, 150))
-})
-ProgressGradient.Parent = ProgressBarFill
-
--- Loading Animation Sequence
-TS:Create(LoadFrame, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 280, 0, 140)}):Play()
-TS:Create(LoadStroke, TweenInfo.new(0.5), {Transparency = 0}):Play()
-task.wait(0.5)
-
-TS:Create(WelcomeText, TweenInfo.new(0.5), {TextTransparency = 0}):Play()
-task.wait(0.3)
-TS:Create(UserText, TweenInfo.new(0.5), {TextTransparency = 0}):Play()
-task.wait(0.3)
-
--- Smooth progress bar fill
-local loadTween = TS:Create(ProgressBarFill, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Size = UDim2.new(1, 0, 1, 0)})
-loadTween:Play()
-loadTween.Completed:Wait()
-
-WelcomeText.Text = "Ready!"
-WelcomeText.TextColor3 = Color3.fromRGB(0, 255, 150)
-task.wait(0.4)
-
--- Fade out loading screen
-TS:Create(LoadFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0)}):Play()
-TS:Create(LoadStroke, TweenInfo.new(0.4), {Transparency = 1}):Play()
-task.wait(0.5)
-LoadFrame:Destroy()
-
 -- === PREMIUM UI MAIN STRUCTURE ===
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 320, 0, 260) 
-MainFrame.Position = UDim2.new(0.5, -160, 0.5, -130)
+MainFrame.Size = UDim2.new(0, 320, 0, 320) -- Increased height slightly for the cool config menu
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -160)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20) 
-MainFrame.BackgroundTransparency = 1 -- Starts transparent for fade-in
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
 MainFrame.Parent = ScreenGui
@@ -158,12 +79,7 @@ MainCorner.Parent = MainFrame
 local MainStroke = Instance.new("UIStroke")
 MainStroke.Color = Color3.fromRGB(60, 60, 70)
 MainStroke.Thickness = 1.5
-MainStroke.Transparency = 1
 MainStroke.Parent = MainFrame
-
--- Fade in Main GUI
-TS:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.05}):Play()
-TS:Create(MainStroke, TweenInfo.new(0.5), {Transparency = 0}):Play()
 
 local TopBar = Instance.new("Frame")
 TopBar.Name = "TopBar"
@@ -292,11 +208,11 @@ Instance.new("UICorner", PopupBox).CornerRadius = UDim.new(0, 8)
 Instance.new("UIStroke", PopupBox).Color = Color3.fromRGB(60, 60, 70)
 
 local PopupTitle = Instance.new("TextLabel")
-PopupTitle.Size = UDim2.new(1, 0, 0.4, 0)
+PopupTitle.Size = UDim2.new(1, 0, 0.5, 0)
 PopupTitle.BackgroundTransparency = 1
 PopupTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 PopupTitle.Font = Enum.Font.GothamBold
-PopupTitle.TextSize = 14
+PopupTitle.TextSize = 12
 PopupTitle.TextWrapped = true
 PopupTitle.ZIndex = 102
 PopupTitle.Parent = PopupBox
@@ -400,19 +316,48 @@ local AutoFarmContainer = createContainer("AutoFarmContainer")
 local AutoSellContainer = createContainer("AutoSellContainer")
 local MiscContainer = createContainer("MiscContainer")
 
-for _, cont in ipairs({AutoFarmContainer, MiscContainer}) do
+-- Setup Layouts for Farm and Sell Tabs
+for _, cont in ipairs({AutoFarmContainer, AutoSellContainer}) do
     local UIPadding = Instance.new("UIPadding")
     UIPadding.PaddingTop = UDim.new(0, 5)
     UIPadding.PaddingBottom = UDim.new(0, 5)
     UIPadding.PaddingLeft = UDim.new(0, 5)
     UIPadding.Parent = cont
-
-    local UIGridLayout = Instance.new("UIGridLayout")
-    UIGridLayout.CellSize = UDim2.new(0, 143, 0, 34) 
-    UIGridLayout.CellPadding = UDim2.new(0, 8, 0, 8)
-    UIGridLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    UIGridLayout.Parent = cont
 end
+
+local AutoFarmGrid = Instance.new("UIGridLayout")
+AutoFarmGrid.CellSize = UDim2.new(0, 143, 0, 34) 
+AutoFarmGrid.CellPadding = UDim2.new(0, 8, 0, 8)
+AutoFarmGrid.SortOrder = Enum.SortOrder.LayoutOrder
+AutoFarmGrid.Parent = AutoFarmContainer
+
+-- Structure for Misc Tab (Split between Toggles and Config)
+local MiscLayout = Instance.new("UIListLayout", MiscContainer)
+MiscLayout.SortOrder = Enum.SortOrder.LayoutOrder
+MiscLayout.Padding = UDim.new(0, 10)
+
+local MiscPadding = Instance.new("UIPadding", MiscContainer)
+MiscPadding.PaddingTop = UDim.new(0, 5)
+MiscPadding.PaddingBottom = UDim.new(0, 5)
+MiscPadding.PaddingLeft = UDim.new(0, 5)
+MiscPadding.PaddingRight = UDim.new(0, 5)
+
+local MiscTogglesFrame = Instance.new("Frame", MiscContainer)
+MiscTogglesFrame.Size = UDim2.new(1, 0, 0, 0)
+MiscTogglesFrame.BackgroundTransparency = 1
+MiscTogglesFrame.AutomaticSize = Enum.AutomaticSize.Y
+MiscTogglesFrame.LayoutOrder = 1
+
+local MiscTogglesGrid = Instance.new("UIGridLayout", MiscTogglesFrame)
+MiscTogglesGrid.CellSize = UDim2.new(0, 143, 0, 34)
+MiscTogglesGrid.CellPadding = UDim2.new(0, 8, 0, 8)
+MiscTogglesGrid.SortOrder = Enum.SortOrder.LayoutOrder
+
+local MiscDivider = Instance.new("Frame", MiscContainer)
+MiscDivider.Size = UDim2.new(1, -10, 0, 1)
+MiscDivider.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+MiscDivider.BorderSizePixel = 0
+MiscDivider.LayoutOrder = 2
 
 local function switchTab(tabName)
     AutoFarmContainer.Visible = (tabName == "AutoFarm")
@@ -439,60 +384,306 @@ local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirectio
 registerConnection(MinimizeBtn.MouseButton1Click:Connect(function()
     minimized = not minimized
     if minimized then
-        -- Hide everything to prevent buttons from blocking clicks
         TabBar.Visible = false
         AutoFarmContainer.Visible = false
         AutoSellContainer.Visible = false
         MiscContainer.Visible = false
         BottomBar.Visible = false
-        
         TS:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 320, 0, 35)}):Play()
     else
-        TS:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 320, 0, 260)}):Play()
-        task.wait(0.2) -- Wait for the resize tween to finish before showing items
-        
+        TS:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 320, 0, 320)}):Play()
+        task.wait(0.2) 
         TabBar.Visible = true
         BottomBar.Visible = true
-        
-        -- Restore only the tab that was currently active
         AutoFarmContainer.Visible = AutoFarmInd.Visible
         AutoSellContainer.Visible = AutoSellInd.Visible
         MiscContainer.Visible = MiscInd.Visible
     end
 end))
 
--- [FIXED] Lag causing function: changed to execute once when clicked rather than spamming a loop
-local function executeContinuousFPSBoost()
-    pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Level01 end)
-    local Lighting = game:GetService("Lighting")
-    Lighting.GlobalShadows = false
-    Lighting.FogEnd = 9e9
-    
-    for _, v in pairs(Lighting:GetDescendants()) do
-        if v:IsA("PostEffect") or v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("ColorCorrectionEffect") or v:IsA("BloomEffect") or v:IsA("DepthOfFieldEffect") then
-            v.Enabled = false
+-- === SMART AUTO SELL SYSTEM ===
+local autoSellEnabled = false
+local sellThreshold = 0
+local selectedRarities = {}
+local sellQueue = {}
+local isSelling = false
+local rarityUIElements = {} 
+
+local allRarities = {
+    "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", 
+    "Event", "Secret", "Divine", "Cosmic", "Celestial", "Brainrot God"
+}
+
+local AutoSellList = Instance.new("UIListLayout", AutoSellContainer)
+AutoSellList.SortOrder = Enum.SortOrder.LayoutOrder
+AutoSellList.Padding = UDim.new(0, 8)
+AutoSellList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+local function parseValue(str)
+    if not str or str == "" then return nil end
+    str = tostring(str):lower():gsub(",", ""):gsub(" ", ""):gsub("%$", "")
+    local multi = 1
+    if str:match("k$") then multi = 1e3; str = str:gsub("k$", "")
+    elseif str:match("m$") then multi = 1e6; str = str:gsub("m$", "")
+    elseif str:match("b$") then multi = 1e9; str = str:gsub("b$", "")
+    elseif str:match("t$") then multi = 1e12; str = str:gsub("t$", "") end
+    local num = tonumber(str)
+    return num and (num * multi) or nil
+end
+
+local MasterSellBtn = Instance.new("TextButton")
+MasterSellBtn.Size = UDim2.new(1, -10, 0, 35)
+MasterSellBtn.LayoutOrder = 1
+MasterSellBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+MasterSellBtn.Text = "Smart Auto Sell: OFF"
+MasterSellBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
+MasterSellBtn.Font = Enum.Font.GothamBold
+MasterSellBtn.TextSize = 13
+MasterSellBtn.Parent = AutoSellContainer
+Instance.new("UICorner", MasterSellBtn).CornerRadius = UDim.new(0, 6)
+local MasterSellStroke = Instance.new("UIStroke", MasterSellBtn)
+MasterSellStroke.Color = Color3.fromRGB(50, 50, 60)
+
+registerConnection(MasterSellBtn.MouseButton1Click:Connect(function()
+    if not autoSellEnabled then
+        if sellThreshold <= 0 then
+            ShowPopup("Please set a valid Max Value before enabling Auto Sell!", function() end)
+            return
         end
-    end
-
-    local Terrain = workspace:FindFirstChildOfClass("Terrain")
-    if Terrain then
-        Terrain.WaterWaveSize = 0
-        Terrain.WaterWaveSpeed = 0
-        Terrain.WaterReflectance = 0
-    end
-
-    for _, v in pairs(workspace:GetDescendants()) do
-        if v:IsA("BasePart") or v:IsA("MeshPart") then
-            if v.Material ~= Enum.Material.SmoothPlastic then
-                v.Material = Enum.Material.SmoothPlastic
-                v.Reflectance = 0
-                v.CastShadow = false
+        ShowPopup("Are you sure? This will mass-sell all selected items under " .. formatNumberForDisplay(sellThreshold) .. "!", function(confirmed)
+            if confirmed then
+                autoSellEnabled = true
+                MasterSellBtn.Text = "Smart Auto Sell: ON"
+                MasterSellBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 110)
+                MasterSellBtn.TextColor3 = Color3.fromRGB(20, 35, 20)
+                MasterSellStroke.Color = Color3.fromRGB(0, 200, 110)
             end
-        elseif v:IsA("Decal") or v:IsA("Texture") or v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Sparkles") or v:IsA("Smoke") or v:IsA("Fire") then
-            v:Destroy()
+        end)
+    else
+        autoSellEnabled = false
+        MasterSellBtn.Text = "Smart Auto Sell: OFF"
+        MasterSellBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+        MasterSellBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
+        MasterSellStroke.Color = Color3.fromRGB(50, 50, 60)
+        sellQueue = {}
+        isSelling = false
+    end
+end))
+
+local ThresholdBox = Instance.new("TextBox")
+ThresholdBox.Size = UDim2.new(1, -10, 0, 35)
+ThresholdBox.LayoutOrder = 2
+ThresholdBox.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+ThresholdBox.Text = ""
+ThresholdBox.PlaceholderText = "Max Value (e.g., 1.5M, 2B, 10000)"
+ThresholdBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+ThresholdBox.Font = Enum.Font.GothamSemibold
+ThresholdBox.TextSize = 12
+ThresholdBox.Parent = AutoSellContainer
+Instance.new("UICorner", ThresholdBox).CornerRadius = UDim.new(0, 6)
+Instance.new("UIStroke", ThresholdBox).Color = Color3.fromRGB(50, 50, 60)
+
+registerConnection(ThresholdBox.FocusLost:Connect(function()
+    local newVal = parseValue(ThresholdBox.Text)
+    if not newVal then 
+        ThresholdBox.Text = "Max Value: " .. formatNumberForDisplay(sellThreshold)
+        return
+    end
+
+    ShowPopup("Set the sell limit to " .. formatNumberForDisplay(newVal) .. "?", function(confirmed)
+        if confirmed then
+            sellThreshold = newVal
         end
+        ThresholdBox.Text = "Max Value: " .. formatNumberForDisplay(sellThreshold)
+    end)
+end))
+
+local RarityGridContainer = Instance.new("Frame")
+RarityGridContainer.Size = UDim2.new(1, 0, 0, 0)
+RarityGridContainer.LayoutOrder = 3
+RarityGridContainer.BackgroundTransparency = 1
+RarityGridContainer.AutomaticSize = Enum.AutomaticSize.Y
+RarityGridContainer.Parent = AutoSellContainer
+
+local RarityGrid = Instance.new("UIGridLayout", RarityGridContainer)
+RarityGrid.CellSize = UDim2.new(0, 93, 0, 28)
+RarityGrid.CellPadding = UDim2.new(0, 7, 0, 7)
+RarityGrid.SortOrder = Enum.SortOrder.LayoutOrder
+
+local function updateRarityVisuals(rarity, state)
+    local ui = rarityUIElements[rarity]
+    if not ui then return end
+    selectedRarities[rarity] = state
+    if state then
+        ui.btn.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+        ui.btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        ui.stroke.Color = Color3.fromRGB(0, 150, 200)
+    else
+        ui.btn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+        ui.btn.TextColor3 = Color3.fromRGB(150, 150, 160)
+        ui.stroke.Color = Color3.fromRGB(50, 50, 60)
     end
 end
+
+for i, rarity in ipairs(allRarities) do
+    selectedRarities[rarity] = false
+
+    local rBtn = Instance.new("TextButton")
+    rBtn.LayoutOrder = i
+    rBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    rBtn.Text = rarity
+    rBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
+    rBtn.Font = Enum.Font.GothamSemibold
+    rBtn.TextSize = 11
+    rBtn.Parent = RarityGridContainer
+    Instance.new("UICorner", rBtn).CornerRadius = UDim.new(0, 4)
+    local rStroke = Instance.new("UIStroke", rBtn)
+    rStroke.Color = Color3.fromRGB(50, 50, 60)
+
+    rarityUIElements[rarity] = {btn = rBtn, stroke = rStroke}
+
+    registerConnection(rBtn.MouseButton1Click:Connect(function()
+        updateRarityVisuals(rarity, not selectedRarities[rarity])
+    end))
+end
+
+registerThread(function()
+    local invRemote
+    pcall(function() 
+        invRemote = RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("InventoryUpdated")
+    end)
+    local sellRemote = RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("SellItem")
+
+    local function parseUITextValue(str)
+        if type(str) ~= "string" then return 0 end
+        str = str:lower():gsub("%$", ""):gsub("/s", ""):gsub(",", ""):gsub(" ", "")
+        local multi = 1
+        if str:match("k$") then multi = 1e3; str = str:gsub("k$", "")
+        elseif str:match("m$") then multi = 1e6; str = str:gsub("m$", "")
+        elseif str:match("b$") then multi = 1e9; str = str:gsub("b$", "")
+        elseif str:match("t$") then multi = 1e12; str = str:gsub("t$", "") end
+        local num = tonumber(str)
+        return num and (num * multi) or 0
+    end
+
+    local function processSellQueue()
+        if isSelling then return end
+        isSelling = true
+        registerThread(function()
+            for itemId, _ in pairs(sellQueue) do
+                if not autoSellEnabled then break end
+                pcall(function() sellRemote:FireServer(itemId) end)
+                sellQueue[itemId] = nil
+                task.wait(0.15) 
+            end
+            isSelling = false
+        end)
+    end
+
+    local isScanning = false
+    local function scanUIForItems()
+        if not autoSellEnabled or isScanning then return end
+        isScanning = true
+        pcall(function()
+            local pGui = LocalPlayer:FindFirstChild("PlayerGui")
+            if not pGui then return end
+            
+            local scrollFrame = pGui.FullGameGUIV2.InventoryHUD.Canvas.Scrollingframe
+            local foundItems = false
+
+            for _, itemFrame in ipairs(scrollFrame:GetChildren()) do
+                if not itemFrame:IsA("UIListLayout") and not itemFrame:IsA("UIGridLayout") and not itemFrame:IsA("UIPadding") then
+                    local content = itemFrame:FindFirstChild("Content")
+                    if content then
+                        local nameLabel = content:FindFirstChild("Name")
+                        local rarityLabel = content:FindFirstChild("Rarity")
+                        if nameLabel and rarityLabel then
+                            local itemValueStr = nameLabel.Text
+                            local itemRarity = rarityLabel.Text
+                            local parsedValue = parseUITextValue(itemValueStr)
+                            
+                            if selectedRarities[itemRarity] then
+                                if sellThreshold > 0 and parsedValue <= sellThreshold then
+                                    local itemId = itemFrame.Name 
+                                    if not sellQueue[itemId] then
+                                        debugLog("QUEUED -> ID: " .. tostring(itemId))
+                                        sellQueue[itemId] = true
+                                        foundItems = true
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            if foundItems then processSellQueue() end
+        end)
+        isScanning = false
+    end
+
+    if invRemote then
+        registerConnection(invRemote.OnClientEvent:Connect(function()
+            if not autoSellEnabled then return end
+            task.wait(0.2) 
+            scanUIForItems()
+        end))
+    end
+    
+    registerThread(function()
+        while task.wait(3) do
+            if autoSellEnabled then scanUIForItems() end
+        end
+    end)
+end)
+
+-- === CPU/FPS BOOST LOOP ===
+local fpsBoostActive = false
+local function toggleContinuousFPSBoost(state)
+    fpsBoostActive = state
+    if state then
+        registerThread(function()
+            while fpsBoostActive do
+                pcall(function()
+                    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+                    local Lighting = game:GetService("Lighting")
+                    Lighting.GlobalShadows = false
+                    Lighting.FogEnd = 9e9
+                    
+                    for _, v in pairs(Lighting:GetDescendants()) do
+                        if v:IsA("PostEffect") or v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("ColorCorrectionEffect") or v:IsA("BloomEffect") or v:IsA("DepthOfFieldEffect") then
+                            v.Enabled = false
+                        end
+                    end
+
+                    local Terrain = workspace:FindFirstChildOfClass("Terrain")
+                    if Terrain then
+                        Terrain.WaterWaveSize = 0
+                        Terrain.WaterWaveSpeed = 0
+                        Terrain.WaterReflectance = 0
+                    end
+
+                    for _, v in pairs(workspace:GetDescendants()) do
+                        if v:IsA("BasePart") or v:IsA("MeshPart") then
+                            if v.Material ~= Enum.Material.SmoothPlastic then
+                                v.Material = Enum.Material.SmoothPlastic
+                                v.Reflectance = 0
+                                v.CastShadow = false
+                            end
+                        elseif v:IsA("Decal") or v:IsA("Texture") or v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Sparkles") or v:IsA("Smoke") or v:IsA("Fire") then
+                            v:Destroy()
+                        end
+                    end
+                end)
+                task.wait(5) 
+            end
+        end)
+    end
+end
+
+-- === CONFIGURATION LOGIC & TOGGLES ===
+local selectedPlayTable = "Table2"
+local activeToggles = {}
+local toggleFunctions = {}
 
 local espObjects = {}
 local function toggleTableESP(state)
@@ -532,246 +723,6 @@ local function toggleTableESP(state)
     end
 end
 
--- === SMART AUTO SELL SYSTEM ===
-local autoSellEnabled = false
-local sellThreshold = 0
-local selectedRarities = {}
-local sellQueue = {}
-local isSelling = false
-
-local allRarities = {
-    "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", 
-    "Event", "Secret", "Divine", "Cosmic", "Celestial", "Brainrot God"
-}
-
-local AutoSellPadding = Instance.new("UIPadding", AutoSellContainer)
-AutoSellPadding.PaddingTop = UDim.new(0, 5)
-AutoSellPadding.PaddingBottom = UDim.new(0, 5)
-AutoSellPadding.PaddingLeft = UDim.new(0, 5)
-AutoSellPadding.PaddingRight = UDim.new(0, 5)
-
-local AutoSellList = Instance.new("UIListLayout", AutoSellContainer)
-AutoSellList.SortOrder = Enum.SortOrder.LayoutOrder
-AutoSellList.Padding = UDim.new(0, 8)
-AutoSellList.HorizontalAlignment = Enum.HorizontalAlignment.Center
-
-local function parseValue(str)
-    if not str or str == "" then return nil end
-    str = tostring(str):lower():gsub(",", ""):gsub(" ", ""):gsub("%$", "")
-    local multi = 1
-    if str:match("k$") then multi = 1e3; str = str:gsub("k$", "")
-    elseif str:match("m$") then multi = 1e6; str = str:gsub("m$", "")
-    elseif str:match("b$") then multi = 1e9; str = str:gsub("b$", "")
-    elseif str:match("t$") then multi = 1e12; str = str:gsub("t$", "") end
-    local num = tonumber(str)
-    return num and (num * multi) or nil
-end
-
-local MasterSellBtn = Instance.new("TextButton")
-MasterSellBtn.Size = UDim2.new(1, 0, 0, 35)
-MasterSellBtn.LayoutOrder = 1
-MasterSellBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-MasterSellBtn.Text = "Smart Auto Sell: OFF"
-MasterSellBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
-MasterSellBtn.Font = Enum.Font.GothamBold
-MasterSellBtn.TextSize = 13
-MasterSellBtn.Parent = AutoSellContainer
-Instance.new("UICorner", MasterSellBtn).CornerRadius = UDim.new(0, 6)
-local MasterSellStroke = Instance.new("UIStroke", MasterSellBtn)
-MasterSellStroke.Color = Color3.fromRGB(50, 50, 60)
-
-registerConnection(MasterSellBtn.MouseButton1Click:Connect(function()
-    autoSellEnabled = not autoSellEnabled
-    if autoSellEnabled then
-        MasterSellBtn.Text = "Smart Auto Sell: ON"
-        MasterSellBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 110)
-        MasterSellBtn.TextColor3 = Color3.fromRGB(20, 35, 20)
-        MasterSellStroke.Color = Color3.fromRGB(0, 200, 110)
-    else
-        MasterSellBtn.Text = "Smart Auto Sell: OFF"
-        MasterSellBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-        MasterSellBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
-        MasterSellStroke.Color = Color3.fromRGB(50, 50, 60)
-        sellQueue = {}
-        isSelling = false
-    end
-end))
-
-local ThresholdBox = Instance.new("TextBox")
-ThresholdBox.Size = UDim2.new(1, 0, 0, 35)
-ThresholdBox.LayoutOrder = 2
-ThresholdBox.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-ThresholdBox.Text = ""
-ThresholdBox.PlaceholderText = "Max Value (e.g., 1.5M, 2B, 10000)"
-ThresholdBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-ThresholdBox.Font = Enum.Font.GothamSemibold
-ThresholdBox.TextSize = 12
-ThresholdBox.Parent = AutoSellContainer
-Instance.new("UICorner", ThresholdBox).CornerRadius = UDim.new(0, 6)
-Instance.new("UIStroke", ThresholdBox).Color = Color3.fromRGB(50, 50, 60)
-
--- [FIXED] Safety logic for updating max threshold
-registerConnection(ThresholdBox.FocusLost:Connect(function()
-    local newVal = parseValue(ThresholdBox.Text)
-    
-    if not newVal then 
-        ThresholdBox.Text = "Max Value: " .. string.format("%.0f", sellThreshold)
-        return
-    end
-
-    ShowPopup("Are you sure you want to set the sell limit to " .. string.format("%.0f", newVal) .. "?", function(confirmed)
-        if confirmed then
-            sellThreshold = newVal
-        end
-        ThresholdBox.Text = "Max Value: " .. string.format("%.0f", sellThreshold)
-    end)
-end))
-
-local RarityGridContainer = Instance.new("Frame")
-RarityGridContainer.Size = UDim2.new(1, 0, 0, 0)
-RarityGridContainer.LayoutOrder = 3
-RarityGridContainer.BackgroundTransparency = 1
-RarityGridContainer.AutomaticSize = Enum.AutomaticSize.Y
-RarityGridContainer.Parent = AutoSellContainer
-
-local RarityGrid = Instance.new("UIGridLayout", RarityGridContainer)
-RarityGrid.CellSize = UDim2.new(0, 95, 0, 28)
-RarityGrid.CellPadding = UDim2.new(0, 7, 0, 7)
-RarityGrid.SortOrder = Enum.SortOrder.LayoutOrder
-
-for i, rarity in ipairs(allRarities) do
-    selectedRarities[rarity] = false
-
-    local rBtn = Instance.new("TextButton")
-    rBtn.LayoutOrder = i
-    rBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-    rBtn.Text = rarity
-    rBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
-    rBtn.Font = Enum.Font.GothamSemibold
-    rBtn.TextSize = 11
-    rBtn.Parent = RarityGridContainer
-    Instance.new("UICorner", rBtn).CornerRadius = UDim.new(0, 4)
-    local rStroke = Instance.new("UIStroke", rBtn)
-    rStroke.Color = Color3.fromRGB(50, 50, 60)
-
-    registerConnection(rBtn.MouseButton1Click:Connect(function()
-        selectedRarities[rarity] = not selectedRarities[rarity]
-        if selectedRarities[rarity] then
-            rBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
-            rBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-            rStroke.Color = Color3.fromRGB(0, 150, 200)
-        else
-            rBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-            rBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
-            rStroke.Color = Color3.fromRGB(50, 50, 60)
-        end
-    end))
-end
-
-registerThread(function()
-    local invRemote
-    pcall(function() 
-        invRemote = RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("InventoryUpdated")
-    end)
-    local sellRemote = RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("SellItem")
-
-    local function parseUITextValue(str)
-        if type(str) ~= "string" then return 0 end
-        str = str:lower():gsub("%$", ""):gsub("/s", ""):gsub(",", ""):gsub(" ", "")
-        
-        local multi = 1
-        if str:match("k$") then multi = 1e3; str = str:gsub("k$", "")
-        elseif str:match("m$") then multi = 1e6; str = str:gsub("m$", "")
-        elseif str:match("b$") then multi = 1e9; str = str:gsub("b$", "")
-        elseif str:match("t$") then multi = 1e12; str = str:gsub("t$", "") end
-        
-        local num = tonumber(str)
-        return num and (num * multi) or 0
-    end
-
-    local function processSellQueue()
-        if isSelling then return end
-        isSelling = true
-        
-        registerThread(function()
-            for itemId, _ in pairs(sellQueue) do
-                if not autoSellEnabled then break end
-                pcall(function() sellRemote:FireServer(itemId) end)
-                sellQueue[itemId] = nil
-                task.wait(0.15) 
-            end
-            isSelling = false
-        end)
-    end
-
-    -- [FIXED] Added debounce and optimized queue to fix game freezing
-    local isScanning = false
-    local function scanUIForItems()
-        if not autoSellEnabled or isScanning then return end
-        isScanning = true
-        
-        pcall(function()
-            local pGui = LocalPlayer:FindFirstChild("PlayerGui")
-            if not pGui then return end
-            
-            local scrollFrame = pGui.FullGameGUIV2.InventoryHUD.Canvas.Scrollingframe
-            local foundItems = false
-
-            for _, itemFrame in ipairs(scrollFrame:GetChildren()) do
-                if not itemFrame:IsA("UIListLayout") and not itemFrame:IsA("UIGridLayout") and not itemFrame:IsA("UIPadding") then
-                    local content = itemFrame:FindFirstChild("Content")
-                    if content then
-                        local nameLabel = content:FindFirstChild("Name")
-                        local rarityLabel = content:FindFirstChild("Rarity")
-                        
-                        if nameLabel and rarityLabel then
-                            local itemValueStr = nameLabel.Text
-                            local itemRarity = rarityLabel.Text
-                            local parsedValue = parseUITextValue(itemValueStr)
-                            
-                            if selectedRarities[itemRarity] then
-                                -- [FIXED] Checks that sellThreshold is greater than 0 before mass selling
-                                if sellThreshold > 0 and parsedValue <= sellThreshold then
-                                    local itemId = itemFrame.Name 
-                                    if not sellQueue[itemId] then
-                                        debugLog("QUEUED -> ID: " .. tostring(itemId))
-                                        sellQueue[itemId] = true
-                                        foundItems = true
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-            
-            if foundItems then
-                processSellQueue()
-            end
-        end)
-        isScanning = false
-    end
-
-    if invRemote then
-        registerConnection(invRemote.OnClientEvent:Connect(function()
-            if not autoSellEnabled then return end
-            task.wait(0.2) 
-            scanUIForItems()
-        end))
-    end
-    
-    registerThread(function()
-        while task.wait(3) do -- Increased loop interval to prevent further lag
-            if autoSellEnabled then
-                scanUIForItems()
-            end
-        end
-    end)
-end)
-
--- === CONFIGURATION ===
-local selectedPlayTable = "Table2"
-
 local actionsConfig = {
     { Tab = AutoFarmContainer, Name = "Auto Split", Delay = 0.1, Action = function() RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Tables"):WaitForChild("DecisionRequest"):FireServer("Split") end },
     { Tab = AutoFarmContainer, Name = "Play Again", Delay = 0.1, IsPlayAgain = true, Action = function() RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("PlayAgainRequest"):FireServer(selectedPlayTable) end },
@@ -787,8 +738,8 @@ local actionsConfig = {
         merchantEvent:FireServer("50MSlot")
     end },
     
-    { Tab = MiscContainer, Name = "Table ESP", IsToggleCustom = true, Action = toggleTableESP },
-    { Tab = MiscContainer, Name = "Auto FPS Boost", IsAction = true, Action = executeContinuousFPSBoost } 
+    { Tab = MiscTogglesFrame, Name = "Table ESP", IsToggleCustom = true, Action = toggleTableESP },
+    { Tab = MiscTogglesFrame, Name = "Auto FPS Boost", IsToggleCustom = true, Action = toggleContinuousFPSBoost } 
 }
 
 for _, config in ipairs(actionsConfig) do
@@ -800,9 +751,9 @@ for _, config in ipairs(actionsConfig) do
     local btnCorner = Instance.new("UICorner", btn)
     btnCorner.CornerRadius = UDim.new(0, 6)
 
-    local offColor = config.IsAction and Color3.fromRGB(180, 50, 50) or Color3.fromRGB(30, 30, 35)
+    local offColor = Color3.fromRGB(30, 30, 35)
     local onColor = Color3.fromRGB(0, 200, 110)
-    local offTextColor = config.IsAction and Color3.fromRGB(255, 200, 200) or Color3.fromRGB(150, 150, 160)
+    local offTextColor = Color3.fromRGB(150, 150, 160)
     local onTextColor = Color3.fromRGB(20, 35, 20)
     
     local btnStroke = Instance.new("UIStroke")
@@ -816,13 +767,21 @@ for _, config in ipairs(actionsConfig) do
 
     if config.IsToggleCustom then
         local state = false
-        registerConnection(btn.MouseButton1Click:Connect(function()
-            state = not state
+        local function executeCustomToggle(forceState)
+            if forceState ~= nil then
+                if state == forceState then return end
+                state = forceState
+            else
+                state = not state
+            end
+            activeToggles[config.Name] = state
             btn.BackgroundColor3 = state and onColor or offColor
             btn.TextColor3 = state and onTextColor or offTextColor
             btnStroke.Color = state and onColor or Color3.fromRGB(50, 50, 60)
             pcall(function() config.Action(state) end)
-        end))
+        end
+        toggleFunctions[config.Name] = executeCustomToggle
+        registerConnection(btn.MouseButton1Click:Connect(function() executeCustomToggle() end))
         continue
     end
 
@@ -882,18 +841,16 @@ for _, config in ipairs(actionsConfig) do
     local looping = false
     local activeThread = nil 
 
-    local function executeToggleCode()
-        if config.IsAction then
-            pcall(config.Action)
-            btn.Text = "EXECUTED!"
-            btn.BackgroundColor3 = Color3.fromRGB(100, 100, 110)
-            task.wait(1)
-            btn.Text = config.Name
-            btn.BackgroundColor3 = offColor
-            return
+    local function executeToggleCode(forceState)
+        if forceState ~= nil then
+            if looping == forceState then return end
+            looping = forceState
+        else
+            looping = not looping
         end
+        
+        activeToggles[config.Name] = looping
 
-        looping = not looping
         if looping then
             btn.BackgroundColor3 = onColor
             btn.TextColor3 = onTextColor
@@ -926,6 +883,8 @@ for _, config in ipairs(actionsConfig) do
         end
     end
 
+    toggleFunctions[config.Name] = executeToggleCode
+
     registerConnection(btn.MouseButton1Click:Connect(function()
         if config.RequiresConfirm and not looping then
             ShowPopup("Are you sure? This will sell ALL your " .. config.Name:gsub("Sell ", "") .. "s!", function(confirmed)
@@ -936,3 +895,220 @@ for _, config in ipairs(actionsConfig) do
         end
     end))
 end
+
+-- === ULTIMATE CONFIG SAVING/LOADING SYSTEM ===
+local CONFIG_FOLDER = "SplitOrStealConfigs"
+
+local ConfigSection = Instance.new("Frame", MiscContainer)
+ConfigSection.Size = UDim2.new(1, 0, 0, 0)
+ConfigSection.BackgroundTransparency = 1
+ConfigSection.AutomaticSize = Enum.AutomaticSize.Y
+ConfigSection.LayoutOrder = 3
+
+local ConfigLayout = Instance.new("UIListLayout", ConfigSection)
+ConfigLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ConfigLayout.Padding = UDim.new(0, 8)
+
+local ConfigTitle = Instance.new("TextLabel", ConfigSection)
+ConfigTitle.Size = UDim2.new(1, 0, 0, 20)
+ConfigTitle.BackgroundTransparency = 1
+ConfigTitle.Text = "CONFIG HUB"
+ConfigTitle.TextColor3 = Color3.fromRGB(180, 180, 200)
+ConfigTitle.Font = Enum.Font.GothamBold
+ConfigTitle.TextSize = 12
+ConfigTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Search Bar / Input
+local SearchBoxContainer = Instance.new("Frame", ConfigSection)
+SearchBoxContainer.Size = UDim2.new(1, -10, 0, 34)
+SearchBoxContainer.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+Instance.new("UICorner", SearchBoxContainer).CornerRadius = UDim.new(0, 6)
+local SearchStroke = Instance.new("UIStroke", SearchBoxContainer)
+SearchStroke.Color = Color3.fromRGB(50, 50, 60)
+
+local SearchIcon = Instance.new("TextLabel", SearchBoxContainer)
+SearchIcon.Size = UDim2.new(0, 30, 1, 0)
+SearchIcon.BackgroundTransparency = 1
+SearchIcon.Text = "🔍"
+SearchIcon.TextColor3 = Color3.fromRGB(150, 150, 160)
+SearchIcon.TextSize = 14
+
+local ConfigNameBox = Instance.new("TextBox", SearchBoxContainer)
+ConfigNameBox.Size = UDim2.new(1, -40, 1, 0)
+ConfigNameBox.Position = UDim2.new(0, 30, 0, 0)
+ConfigNameBox.BackgroundTransparency = 1
+ConfigNameBox.Text = ""
+ConfigNameBox.PlaceholderText = "Search or type new config name..."
+ConfigNameBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+ConfigNameBox.Font = Enum.Font.GothamSemibold
+ConfigNameBox.TextSize = 12
+ConfigNameBox.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Dropdown Menu (Animated)
+local DropdownContainer = Instance.new("Frame", ConfigSection)
+DropdownContainer.Size = UDim2.new(1, -10, 0, 0)
+DropdownContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+DropdownContainer.ClipsDescendants = true
+Instance.new("UICorner", DropdownContainer).CornerRadius = UDim.new(0, 6)
+local DropdownStroke = Instance.new("UIStroke", DropdownContainer)
+DropdownStroke.Color = Color3.fromRGB(50, 50, 60)
+DropdownStroke.Transparency = 1
+
+local DropdownScroll = Instance.new("ScrollingFrame", DropdownContainer)
+DropdownScroll.Size = UDim2.new(1, 0, 1, 0)
+DropdownScroll.BackgroundTransparency = 1
+DropdownScroll.BorderSizePixel = 0
+DropdownScroll.ScrollBarThickness = 2
+DropdownScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+DropdownScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+local DropdownListLayout = Instance.new("UIListLayout", DropdownScroll)
+DropdownListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local function closeDropdown()
+    TS:Create(DropdownContainer, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {Size = UDim2.new(1, -10, 0, 0)}):Play()
+    DropdownStroke.Transparency = 1
+end
+
+local function openDropdown()
+    TS:Create(DropdownContainer, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(1, -10, 0, 100)}):Play()
+    DropdownStroke.Transparency = 0
+end
+
+local configButtons = {}
+
+local function refreshConfigList(filterText)
+    -- Clear old list
+    for _, btn in ipairs(configButtons) do btn:Destroy() end
+    configButtons = {}
+    
+    if not listfiles then return end
+    
+    pcall(function()
+        if not isfolder(CONFIG_FOLDER) then makefolder(CONFIG_FOLDER) end
+        local files = listfiles(CONFIG_FOLDER)
+        
+        for _, path in ipairs(files) do
+            -- Extract filename from path
+            local fileName = string.match(path, "[^\\/]+$")
+            if fileName and fileName:match("%.json$") then
+                local cleanName = fileName:gsub("%.json$", "")
+                
+                -- Apply search filter
+                if not filterText or filterText == "" or string.lower(cleanName):match(string.lower(filterText)) then
+                    local btn = Instance.new("TextButton", DropdownScroll)
+                    btn.Size = UDim2.new(1, 0, 0, 25)
+                    btn.BackgroundTransparency = 1
+                    btn.Text = "  " .. cleanName
+                    btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+                    btn.Font = Enum.Font.GothamMedium
+                    btn.TextSize = 12
+                    btn.TextXAlignment = Enum.TextXAlignment.Left
+                    
+                    registerConnection(btn.MouseButton1Click:Connect(function()
+                        ConfigNameBox.Text = cleanName
+                        closeDropdown()
+                    end))
+                    
+                    registerConnection(btn.MouseEnter:Connect(function() btn.TextColor3 = Color3.fromRGB(0, 200, 110) end))
+                    registerConnection(btn.MouseLeave:Connect(function() btn.TextColor3 = Color3.fromRGB(200, 200, 200) end))
+                    
+                    table.insert(configButtons, btn)
+                end
+            end
+        end
+    end)
+end
+
+-- Hook up Search/Dropdown triggers
+registerConnection(ConfigNameBox.Focused:Connect(function()
+    refreshConfigList(ConfigNameBox.Text)
+    openDropdown()
+    SearchStroke.Color = Color3.fromRGB(0, 200, 110)
+end))
+
+registerConnection(ConfigNameBox.FocusLost:Connect(function(enterPressed)
+    SearchStroke.Color = Color3.fromRGB(50, 50, 60)
+    -- Small delay so click registers before closing
+    task.delay(0.15, function() closeDropdown() end) 
+end))
+
+registerConnection(ConfigNameBox:GetPropertyChangedSignal("Text"):Connect(function()
+    refreshConfigList(ConfigNameBox.Text)
+end))
+
+-- Buttons Container
+local ActionBtnContainer = Instance.new("Frame", ConfigSection)
+ActionBtnContainer.Size = UDim2.new(1, -10, 0, 34)
+ActionBtnContainer.BackgroundTransparency = 1
+
+local SaveBtn = Instance.new("TextButton", ActionBtnContainer)
+SaveBtn.Size = UDim2.new(0.48, 0, 1, 0)
+SaveBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+SaveBtn.Text = "Save Config"
+SaveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SaveBtn.Font = Enum.Font.GothamBold
+SaveBtn.TextSize = 12
+Instance.new("UICorner", SaveBtn).CornerRadius = UDim.new(0, 6)
+
+local LoadBtn = Instance.new("TextButton", ActionBtnContainer)
+LoadBtn.Size = UDim2.new(0.48, 0, 1, 0)
+LoadBtn.Position = UDim2.new(0.52, 0, 0, 0)
+LoadBtn.BackgroundColor3 = Color3.fromRGB(200, 150, 0)
+LoadBtn.Text = "Load Config"
+LoadBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+LoadBtn.Font = Enum.Font.GothamBold
+LoadBtn.TextSize = 12
+Instance.new("UICorner", LoadBtn).CornerRadius = UDim.new(0, 6)
+
+registerConnection(SaveBtn.MouseButton1Click:Connect(function()
+    if not writefile then 
+        ShowPopup("Your executor does not support saving files!", function() end)
+        return 
+    end
+    
+    local name = ConfigNameBox.Text
+    if name == "" then name = "Default" end
+    
+    local data = {
+        Toggles = activeToggles,
+        SellThreshold = sellThreshold,
+        Rarities = selectedRarities
+    }
+    
+    pcall(function()
+        if not isfolder(CONFIG_FOLDER) then makefolder(CONFIG_FOLDER) end
+        writefile(CONFIG_FOLDER .. "/" .. name .. ".json", HttpService:JSONEncode(data))
+        ShowPopup("Saved Config: " .. name, function() end)
+        refreshConfigList() -- Update list after saving
+    end)
+end))
+
+registerConnection(LoadBtn.MouseButton1Click:Connect(function()
+    if not readfile then return end
+    local name = ConfigNameBox.Text
+    if name == "" then name = "Default" end
+    
+    pcall(function()
+        local json = readfile(CONFIG_FOLDER .. "/" .. name .. ".json")
+        local data = HttpService:JSONDecode(json)
+        
+        if data.SellThreshold then
+            sellThreshold = data.SellThreshold
+            ThresholdBox.Text = "Max Value: " .. formatNumberForDisplay(sellThreshold)
+        end
+        if data.Rarities then
+            for r, state in pairs(data.Rarities) do
+                updateRarityVisuals(r, state)
+            end
+        end
+        if data.Toggles then
+            for tName, state in pairs(data.Toggles) do
+                if toggleFunctions[tName] then
+                    toggleFunctions[tName](state)
+                end
+            end
+        end
+        ShowPopup("Loaded Config: " .. name, function() end)
+    end)
+end))
