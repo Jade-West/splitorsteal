@@ -408,6 +408,7 @@ local selectedRarities = {}
 local sellQueue = {}
 local isSelling = false
 local rarityUIElements = {} 
+local lastSellActivity = 0  -- to detect stuck selling
 
 local allRarities = {
     "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", 
@@ -457,6 +458,7 @@ registerConnection(MasterSellBtn.MouseButton1Click:Connect(function()
                 MasterSellBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 110)
                 MasterSellBtn.TextColor3 = Color3.fromRGB(20, 35, 20)
                 MasterSellStroke.Color = Color3.fromRGB(0, 200, 110)
+                lastSellActivity = tick()
             end
         end)
     else
@@ -547,7 +549,7 @@ for i, rarity in ipairs(allRarities) do
     end))
 end
 
--- === INVENTORY SELL CORE (FIXED + VISUAL BUG FIX) ===
+-- === INVENTORY SELL CORE (ROBUST & FIXED) ===
 registerThread(function()
     local invRemote
     pcall(function() 
@@ -567,62 +569,16 @@ registerThread(function()
         return num and (num * multi) or 0
     end
 
-    local function processSellQueue()
-        if isSelling then return end
-        isSelling = true
-        registerThread(function()
-            for itemId, _ in pairs(sellQueue) do
-                if not autoSellEnabled then break end
-                pcall(function() sellRemote:FireServer(itemId) end)
-                sellQueue[itemId] = nil
-                task.wait(0.15) 
-            end
-            isSelling = false
+    local function getInventoryScrollFrame()
+        local pGui = LocalPlayer:FindFirstChild("PlayerGui")
+        if not pGui then return nil end
+        local success, result = pcall(function()
+            return pGui.FullGameGUIV2.InventoryHUD.Canvas.Scrollingframe
         end)
+        return success and result or nil
     end
 
-    local isScanning = false
-    local function scanUIForItems()
-        if not autoSellEnabled or isScanning then return end
-        isScanning = true
-        pcall(function()
-            local pGui = LocalPlayer:FindFirstChild("PlayerGui")
-            if not pGui then return end
-            
-            local scrollFrame = pGui.FullGameGUIV2.InventoryHUD.Canvas.Scrollingframe
-            local foundItems = false
-
-            for _, itemFrame in ipairs(scrollFrame:GetChildren()) do
-                if not itemFrame:IsA("UIListLayout") and not itemFrame:IsA("UIGridLayout") and not itemFrame:IsA("UIPadding") then
-                    local content = itemFrame:FindFirstChild("Content")
-                    if content then
-                        local nameLabel = content:FindFirstChild("Name")
-                        local rarityLabel = content:FindFirstChild("Rarity")
-                        if nameLabel and rarityLabel then
-                            local itemValueStr = nameLabel.Text
-                            local itemRarity = rarityLabel.Text
-                            local parsedValue = parseUITextValue(itemValueStr)
-                            
-                            if selectedRarities[itemRarity] then
-                                if sellThreshold > 0 and parsedValue <= sellThreshold then
-                                    local itemId = itemFrame.Name 
-                                    if not sellQueue[itemId] then
-                                        debugLog("QUEUED -> ID: " .. tostring(itemId))
-                                        sellQueue[itemId] = true
-                                        foundItems = true
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-            if foundItems then processSellQueue() end
-        end)
-        isScanning = false
-    end
-
-    -- 🔧 FIX: Click the UnequipAll button every 5 seconds to refresh inventory UI when auto-sell is active
+    -- Click the UnequipAll button to refresh inventory visuals
     local function clickUnequipAll()
         pcall(function()
             local inventoryHUD = LocalPlayer.PlayerGui:FindFirstChild("FullGameGUIV2") and LocalPlayer.PlayerGui.FullGameGUIV2:FindFirstChild("InventoryHUD")
@@ -637,20 +593,119 @@ registerThread(function()
         end)
     end
 
+    local lastSellAttempt = 0
+    local function processSellQueue()
+        if isSelling then return end
+        isSelling = true
+        lastSellActivity = tick()
+        registerThread(function()
+            -- Process one item at a time with a short delay, and retry if needed
+            local queueSnapshot = {}
+            for k, v in pairs(sellQueue) do queueSnapshot[k] = v end
+            sellQueue = {}  -- clear global queue (will be repopulated next scan)
+            for itemId, _ in pairs(queueSnapshot) do
+                if not autoSellEnabled then break end
+                local success = false
+                for attempt = 1, 3 do
+                    success = pcall(function()
+                        sellRemote:FireServer(itemId)
+                    end)
+                    if success then
+                        lastSellActivity = tick()
+                        break
+                    end
+                    task.wait(0.1)
+                end
+                if not success then
+                    debugLog("FAILED to sell item ID: " .. tostring(itemId) .. " after 3 attempts")
+                    -- Reinsert it for next cycle, but only if it's still valid
+                    sellQueue[itemId] = true
+                end
+                task.wait(0.15)
+            end
+            isSelling = false
+        end)
+    end
+
+    local isScanning = false
+    local function scanUIForItems()
+        if not autoSellEnabled or isScanning then return end
+        isScanning = true
+        pcall(function()
+            local scrollFrame = getInventoryScrollFrame()
+            if not scrollFrame then 
+                isScanning = false
+                return 
+            end
+
+            -- Build a set of IDs currently visible in the UI
+            local uiItemIds = {}
+            for _, itemFrame in ipairs(scrollFrame:GetChildren()) do
+                if not itemFrame:IsA("UIListLayout") and not itemFrame:IsA("UIGridLayout") and not itemFrame:IsA("UIPadding") then
+                    local content = itemFrame:FindFirstChild("Content")
+                    if content then
+                        local nameLabel = content:FindFirstChild("Name")
+                        local rarityLabel = content:FindFirstChild("Rarity")
+                        if nameLabel and rarityLabel then
+                            local itemRarity = rarityLabel.Text
+                            if selectedRarities[itemRarity] then
+                                local itemValueStr = nameLabel.Text
+                                local parsedValue = parseUITextValue(itemValueStr)
+                                if sellThreshold > 0 and parsedValue <= sellThreshold then
+                                    local itemId = itemFrame.Name 
+                                    uiItemIds[itemId] = true
+                                    if not sellQueue[itemId] then
+                                        debugLog("QUEUED -> ID: " .. tostring(itemId))
+                                        sellQueue[itemId] = true
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+
+            -- Remove queue entries that are no longer visible (already sold or vanished)
+            for qId in pairs(sellQueue) do
+                if not uiItemIds[qId] then
+                    sellQueue[qId] = nil
+                end
+            end
+        end)
+        isScanning = false
+    end
+
+    -- Combined refresh: click UnequipAll, then scan
+    local function fullRefreshCycle()
+        clickUnequipAll()
+        task.wait(0.3)  -- let UI update
+        scanUIForItems()
+        if next(sellQueue) ~= nil then
+            processSellQueue()
+        end
+    end
+
+    -- Listen to inventory updates (fires when new items arrive or inventory changes)
     if invRemote then
         registerConnection(invRemote.OnClientEvent:Connect(function()
             if not autoSellEnabled then return end
-            task.wait(0.2) 
-            scanUIForItems()
+            task.wait(0.2)
+            fullRefreshCycle()
         end))
     end
-    
+
+    -- Main periodic loop (every 5 seconds)
     registerThread(function()
         while task.wait(5) do
-            if autoSellEnabled then
-                scanUIForItems()
-                clickUnequipAll()
+            if not autoSellEnabled then continue end
+            -- If selling seems stuck for more than 15 seconds, force reset
+            if isSelling and (tick() - lastSellActivity > 15) then
+                debugLog("Selling appears stuck, resetting queue")
+                sellQueue = {}
+                isSelling = false
+                lastSellActivity = tick()
             end
+            fullRefreshCycle()
         end
     end)
 end)
@@ -963,9 +1018,9 @@ ConfigNameBox.Font = Enum.Font.GothamSemibold
 ConfigNameBox.TextSize = 12
 ConfigNameBox.TextXAlignment = Enum.TextXAlignment.Left
 
--- Permanent List Container
+-- Permanent List Container (height reduced to 80)
 local ListContainer = Instance.new("Frame", ConfigSection)
-ListContainer.Size = UDim2.new(1, -10, 0, 110)
+ListContainer.Size = UDim2.new(1, -10, 0, 80)   -- <<< shortened from 110
 ListContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 ListContainer.ClipsDescendants = true
 Instance.new("UICorner", ListContainer).CornerRadius = UDim.new(0, 6)
