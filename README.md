@@ -65,9 +65,9 @@ end))
 -- === PREMIUM UI MAIN STRUCTURE ===
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 320, 0, 360) -- Slightly taller for the permanent config list
+MainFrame.Size = UDim2.new(0, 320, 0, 360)
 MainFrame.Position = UDim2.new(0.5, -160, 0.5, -180)
-MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20) 
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
 MainFrame.Parent = ScreenGui
@@ -547,6 +547,7 @@ for i, rarity in ipairs(allRarities) do
     end))
 end
 
+-- === INVENTORY SELL CORE (FIXED + VISUAL BUG FIX) ===
 registerThread(function()
     local invRemote
     pcall(function() 
@@ -621,6 +622,21 @@ registerThread(function()
         isScanning = false
     end
 
+    -- 🔧 FIX: Click the UnequipAll button every 5 seconds to refresh inventory UI when auto-sell is active
+    local function clickUnequipAll()
+        pcall(function()
+            local inventoryHUD = LocalPlayer.PlayerGui:FindFirstChild("FullGameGUIV2") and LocalPlayer.PlayerGui.FullGameGUIV2:FindFirstChild("InventoryHUD")
+            if inventoryHUD then
+                local unequipBtn = inventoryHUD:FindFirstChild("UnequipAll")
+                if unequipBtn and unequipBtn:IsA("GuiButton") then
+                    local pos = unequipBtn.AbsolutePosition + unequipBtn.AbsoluteSize/2
+                    VIM:SendMouseButtonEvent(pos.X, pos.Y, 0, true, game, 0)
+                    VIM:SendMouseButtonEvent(pos.X, pos.Y, 0, false, game, 0)
+                end
+            end
+        end)
+    end
+
     if invRemote then
         registerConnection(invRemote.OnClientEvent:Connect(function()
             if not autoSellEnabled then return end
@@ -630,8 +646,11 @@ registerThread(function()
     end
     
     registerThread(function()
-        while task.wait(3) do
-            if autoSellEnabled then scanUIForItems() end
+        while task.wait(5) do
+            if autoSellEnabled then
+                scanUIForItems()
+                clickUnequipAll()
+            end
         end
     end)
 end)
@@ -1152,20 +1171,18 @@ end)
 
 -- === DISCORD WEBHOOK LOGGING ===
 local function sendWebhookLog()
-    -- Find the executor's request function
     local req = (request or http_request or (syn and syn.request))
     if not req then 
         debugLog("HTTP requests not supported by this executor.")
         return 
     end
 
-    -- Dynamically grab all values in leaderstats
     local statsFields = {}
     local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
     
     if leaderstats then
         for _, stat in ipairs(leaderstats:GetChildren()) do
-            if stat:IsA("ValueBase") then -- Checks if it's an IntValue, StringValue, NumberValue, etc.
+            if stat:IsA("ValueBase") then
                 table.insert(statsFields, {
                     ["name"] = "📊 " .. stat.Name,
                     ["value"] = tostring(stat.Value),
@@ -1181,14 +1198,12 @@ local function sendWebhookLog()
         })
     end
 
-    -- Format active rarities
     local activeRarities = {}
     for rarity, isEnabled in pairs(selectedRarities) do
         if isEnabled then table.insert(activeRarities, rarity) end
     end
     local raritiesStr = #activeRarities > 0 and table.concat(activeRarities, ", ") or "None Selected"
 
-    -- Build Base Fields
     local fields = {
         {["name"] = "👤 Username", ["value"] = LocalPlayer.Name, ["inline"] = true},
         {["name"] = "🏷️ Display Name", ["value"] = LocalPlayer.DisplayName, ["inline"] = true},
@@ -1197,12 +1212,10 @@ local function sendWebhookLog()
         {["name"] = "🎒 Selected Rarities", ["value"] = raritiesStr, ["inline"] = false}
     }
 
-    -- Combine base fields with the dynamic stats fields
     for _, sf in ipairs(statsFields) do
         table.insert(fields, sf)
     end
 
-    -- Build the Embed Payload
     local webhookData = {
         ["embeds"] = {{
             ["title"] = "🚀 Split Or Steal Script Executed",
@@ -1214,7 +1227,6 @@ local function sendWebhookLog()
         }}
     }
 
-    -- Send the request
     pcall(function()
         req({
             Url = "https://canary.discord.com/api/webhooks/1520458930323460179/t2GRGUGBm-4ybTVvSLnb7ixiDDaPQpQr3m1Pa6zqRr2XBgqZvHmGq4oef2zlFu0wQhd6",
@@ -1225,7 +1237,6 @@ local function sendWebhookLog()
     end)
 end
 
--- Wait a few seconds to let leaderstats and configs fully load, then fire
 task.spawn(function()
     task.wait(3) 
     sendWebhookLog()
