@@ -22,15 +22,34 @@ local remotesToBlock = {
 
 local function blockRemote(remote)
     if not remote or not remote:IsA("RemoteEvent") then return end
-    -- Hook the Connect method so that any future connections are replaced by a no-op
-    local oldConnect = remote.OnClientEvent.Connect
-    remote.OnClientEvent.Connect = function(self, callback)
-        print("[BLOCKED] " .. remote.Name)
-        -- Return a dummy connection that does nothing
-        return {
-            Connected = true,
-            Disconnect = function() end
-        }
+    local signal = remote.OnClientEvent
+    if not signal then return end
+
+    -- Try to intercept new connections safely
+    local success, err = pcall(function()
+        if hookfunction then
+            -- Prefer hookfunction if available (most executors)
+            hookfunction(signal, "Connect", function(...)
+                print("[BLOCKED] " .. remote.Name)
+                return {
+                    Connected = true,
+                    Disconnect = function() end
+                }
+            end)
+        else
+            -- Direct override (works on many executors)
+            signal.Connect = function(self, callback)
+                print("[BLOCKED] " .. remote.Name)
+                return {
+                    Connected = true,
+                    Disconnect = function() end
+                }
+            end
+        end
+    end)
+
+    if not success then
+        print("[WARN] Could not block remote: " .. remote.Name .. " - " .. tostring(err))
     end
 end
 
