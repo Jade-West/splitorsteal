@@ -882,7 +882,7 @@ local actionsConfig = {
 }
 
 -- ============================================================
--- === AUTO COUNTRY SELECT (DIRECT FRAME CLICKS) ==============
+-- === AUTO COUNTRY SELECT (FIXED FOR MOBILE) =================
 -- ============================================================
 
 local countryOptions = {"USA", "Belgium", "Portugal", "England", "Brazil", "Argentina", "Spain", "France"}
@@ -1011,7 +1011,7 @@ local function safeCloseGUI()
     debugLog("GUI closed")
 end
 
--- Click country frame and confirm using the Gemini method (+58 Y offset)
+-- Click country frame and confirm – NO +58 offset (works on all devices)
 local function clickCountryInGUI()
     local selectGui = LocalPlayer.PlayerGui:FindFirstChild("SelectCountry")
     if not selectGui then return false end
@@ -1027,9 +1027,9 @@ local function clickCountryInGUI()
     local countryButton = mainHolder:FindFirstChild(selectedCountry)
     if not countryButton or not countryButton.AbsolutePosition then return false end
 
-    -- Click the country frame
+    -- Click the exact centre (AbsolutePosition is already the correct screen position)
     local x = countryButton.AbsolutePosition.X + (countryButton.AbsoluteSize.X / 2)
-    local y = countryButton.AbsolutePosition.Y + (countryButton.AbsoluteSize.Y / 2) + 58
+    local y = countryButton.AbsolutePosition.Y + (countryButton.AbsoluteSize.Y / 2)
     debugLog("Clicking country: " .. selectedCountry .. " at " .. x .. ", " .. y)
     VIM:SendMouseButtonEvent(x, y, 0, true, game, 1)
     task.wait(0.05)
@@ -1041,7 +1041,7 @@ local function clickCountryInGUI()
     -- Click Confirm
     if confirmButton and confirmButton.AbsolutePosition then
         local cx = confirmButton.AbsolutePosition.X + (confirmButton.AbsoluteSize.X / 2)
-        local cy = confirmButton.AbsolutePosition.Y + (confirmButton.AbsoluteSize.Y / 2) + 58
+        local cy = confirmButton.AbsolutePosition.Y + (confirmButton.AbsoluteSize.Y / 2)
         debugLog("Clicking Confirm at " .. cx .. ", " .. cy)
         VIM:SendMouseButtonEvent(cx, cy, 0, true, game, 1)
         task.wait(0.05)
