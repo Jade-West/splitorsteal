@@ -882,7 +882,7 @@ local actionsConfig = {
 }
 
 -- ============================================================
--- === AUTO COUNTRY SELECT (MOBILE RIGHT-OFFSET + CONFIRM FIX) =
+-- === AUTO COUNTRY SELECT (MOBILE OFFSET + SINGLE CONFIRM) ====
 -- ============================================================
 
 local countryOptions = {"USA", "Belgium", "Portugal", "England", "Brazil", "Argentina", "Spain", "France"}
@@ -1011,7 +1011,7 @@ local function safeCloseGUI()
     debugLog("GUI closed")
 end
 
--- Click country button and confirm – MOBILE OFFSET + CONFIRM RETRY
+-- Click country button and confirm – MOBILE OFFSET + SINGLE CONFIRM CLICK
 local function clickCountryInGUI()
     local selectGui = LocalPlayer.PlayerGui:FindFirstChild("SelectCountry")
     if not selectGui then return false end
@@ -1053,10 +1053,10 @@ local function clickCountryInGUI()
     VIM:SendMouseButtonEvent(x, y, 0, false, game, 1)
     debugLog("Country clicked")
 
-    -- Longer wait for GUI to fully update selection
+    -- Wait a bit for the game to register selection
     task.wait(0.5)
 
-    -- Click Confirm (no extra offset needed)
+    -- Click Confirm (single click, no double)
     if confirmButton and confirmButton.AbsolutePosition then
         local cx = confirmButton.AbsolutePosition.X + (confirmButton.AbsoluteSize.X / 2)
         local cy = confirmButton.AbsolutePosition.Y + (confirmButton.AbsoluteSize.Y / 2) + topOffset
@@ -1064,15 +1064,7 @@ local function clickCountryInGUI()
         VIM:SendMouseButtonEvent(cx, cy, 0, true, game, 1)
         task.wait(0.05)
         VIM:SendMouseButtonEvent(cx, cy, 0, false, game, 1)
-        debugLog("Confirm clicked (first attempt)")
-        task.wait(0.3)
-
-        -- Second attempt just in case the first didn't register
-        debugLog("Second Confirm click for safety")
-        VIM:SendMouseButtonEvent(cx, cy, 0, true, game, 1)
-        task.wait(0.05)
-        VIM:SendMouseButtonEvent(cx, cy, 0, false, game, 1)
-        debugLog("Confirm second click done")
+        debugLog("Confirm clicked")
     else
         return false
     end
@@ -1084,7 +1076,7 @@ local function performFullSelection()
     task.wait(0.5)
     local ok = clickCountryInGUI()
     if ok then
-        task.wait(0.5)
+        task.wait(0.5) -- let the game's confirm process run
         safeCloseGUI()
     end
     return ok
