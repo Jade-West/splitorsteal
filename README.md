@@ -882,7 +882,7 @@ local actionsConfig = {
 }
 
 -- ============================================================
--- === AUTO COUNTRY SELECT (MOBILE RIGHT-OFFSET FIX) ==========
+-- === AUTO COUNTRY SELECT (MOBILE RIGHT-OFFSET + CONFIRM FIX) =
 -- ============================================================
 
 local countryOptions = {"USA", "Belgium", "Portugal", "England", "Brazil", "Argentina", "Spain", "France"}
@@ -1011,7 +1011,7 @@ local function safeCloseGUI()
     debugLog("GUI closed")
 end
 
--- Click country button and confirm – MOBILE OFFSET ADDED
+-- Click country button and confirm – MOBILE OFFSET + CONFIRM RETRY
 local function clickCountryInGUI()
     local selectGui = LocalPlayer.PlayerGui:FindFirstChild("SelectCountry")
     if not selectGui then return false end
@@ -1053,7 +1053,8 @@ local function clickCountryInGUI()
     VIM:SendMouseButtonEvent(x, y, 0, false, game, 1)
     debugLog("Country clicked")
 
-    task.wait(0.3)
+    -- Longer wait for GUI to fully update selection
+    task.wait(0.5)
 
     -- Click Confirm (no extra offset needed)
     if confirmButton and confirmButton.AbsolutePosition then
@@ -1063,7 +1064,15 @@ local function clickCountryInGUI()
         VIM:SendMouseButtonEvent(cx, cy, 0, true, game, 1)
         task.wait(0.05)
         VIM:SendMouseButtonEvent(cx, cy, 0, false, game, 1)
-        debugLog("Confirm clicked")
+        debugLog("Confirm clicked (first attempt)")
+        task.wait(0.3)
+
+        -- Second attempt just in case the first didn't register
+        debugLog("Second Confirm click for safety")
+        VIM:SendMouseButtonEvent(cx, cy, 0, true, game, 1)
+        task.wait(0.05)
+        VIM:SendMouseButtonEvent(cx, cy, 0, false, game, 1)
+        debugLog("Confirm second click done")
     else
         return false
     end
