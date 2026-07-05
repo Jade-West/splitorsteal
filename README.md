@@ -882,7 +882,7 @@ local actionsConfig = {
 }
 
 -- ============================================================
--- === AUTO COUNTRY SELECT (DYNAMIC TOP OFFSET) ===============
+-- === AUTO COUNTRY SELECT (CLICK DefaultSlot1 FIX) ===========
 -- ============================================================
 
 local countryOptions = {"USA", "Belgium", "Portugal", "England", "Brazil", "Argentina", "Spain", "France"}
@@ -1025,7 +1025,11 @@ local function clickCountryInGUI()
 
     -- Get the selected country frame
     local countryButton = mainHolder:FindFirstChild(selectedCountry)
-    if not countryButton or not countryButton.AbsolutePosition then return false end
+    if not countryButton then return false end
+
+    -- **CLICK THE DefaultSlot1 (the actual button)**
+    local clickTarget = countryButton:FindFirstChild("DefaultSlot1")
+    if not clickTarget or not clickTarget:IsA("GuiButton") then return false end
 
     -- Dynamic top offset for all devices
     local topOffset = 0
@@ -1034,9 +1038,9 @@ local function clickCountryInGUI()
     end)
     debugLog("Top bar offset: " .. tostring(topOffset))
 
-    -- Click the exact centre (AbsolutePosition + topOffset)
-    local x = countryButton.AbsolutePosition.X + (countryButton.AbsoluteSize.X / 2)
-    local y = countryButton.AbsolutePosition.Y + (countryButton.AbsoluteSize.Y / 2) + topOffset
+    -- Click the exact centre of DefaultSlot1
+    local x = clickTarget.AbsolutePosition.X + (clickTarget.AbsoluteSize.X / 2)
+    local y = clickTarget.AbsolutePosition.Y + (clickTarget.AbsoluteSize.Y / 2) + topOffset
     debugLog("Clicking country: " .. selectedCountry .. " at " .. x .. ", " .. y)
     VIM:SendMouseButtonEvent(x, y, 0, true, game, 1)
     task.wait(0.05)
