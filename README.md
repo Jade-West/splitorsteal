@@ -6,6 +6,46 @@ local TS = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
+-- ============================================================
+-- === BLOCK LAGGY REMOTE EVENTS (Local Only) ==================
+-- ============================================================
+local remotesToBlock = {
+    "UncollectedUpdated",
+    "LeaderboardRankUpdated",
+    "MerchantBuyResult",
+    "InventoryUpdated",
+    "MoneyBroadcast",
+    "MultiplierInfo",
+    "RollReveal",
+    "RevealFlash",
+}
+
+local function blockRemote(remote)
+    if not remote or not remote:IsA("RemoteEvent") then return end
+    -- Hook the Connect method so that any future connections are replaced by a no-op
+    local oldConnect = remote.OnClientEvent.Connect
+    remote.OnClientEvent.Connect = function(self, callback)
+        print("[BLOCKED] " .. remote.Name)
+        -- Return a dummy connection that does nothing
+        return {
+            Connected = true,
+            Disconnect = function() end
+        }
+    end
+end
+
+-- Find and block all matching remotes
+local eventsFolder = RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events", 10)
+if eventsFolder then
+    for _, remote in ipairs(eventsFolder:GetDescendants()) do
+        if remote:IsA("RemoteEvent") and table.find(remotesToBlock, remote.Name) then
+            blockRemote(remote)
+        end
+    end
+end
+
+print("[AUTO SELL DEBUG]: Blocked laggy remotes: " .. table.concat(remotesToBlock, ", "))
+
 -- === CONSOLE DEBUG LOGGER ===
 local function debugLog(msg)
     print("[AUTO SELL DEBUG]: " .. tostring(msg))
@@ -710,47 +750,75 @@ registerThread(function()
     end)
 end)
 
--- === CPU/FPS BOOST LOOP ===
+-- === CPU/FPS BOOST (NO LAG SPIKES) ===
 local fpsBoostActive = false
+local fpsConnections = {} -- store connections to disconnect later
+
+local function applyFpsBoostToObject(obj)
+    pcall(function()
+        if obj:IsA("BasePart") or obj:IsA("MeshPart") then
+            if obj.Material ~= Enum.Material.SmoothPlastic then
+                obj.Material = Enum.Material.SmoothPlastic
+                obj.Reflectance = 0
+                obj.CastShadow = false
+            end
+        elseif obj:IsA("Decal") or obj:IsA("Texture") or obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Sparkles") or obj:IsA("Smoke") or obj:IsA("Fire") then
+            obj:Destroy()
+        elseif obj:IsA("PostEffect") or obj:IsA("BlurEffect") or obj:IsA("SunRaysEffect") or obj:IsA("ColorCorrectionEffect") or obj:IsA("BloomEffect") or obj:IsA("DepthOfFieldEffect") then
+            obj.Enabled = false
+        end
+    end)
+end
+
+local function initialFpsBoost()
+    -- Graphics settings
+    pcall(function()
+        settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+        local Lighting = game:GetService("Lighting")
+        Lighting.GlobalShadows = false
+        Lighting.FogEnd = 9e9
+        
+        -- Disable existing post-effects in Lighting
+        for _, v in pairs(Lighting:GetDescendants()) do
+            applyFpsBoostToObject(v)
+        end
+
+        -- Terrain
+        local Terrain = workspace:FindFirstChildOfClass("Terrain")
+        if Terrain then
+            Terrain.WaterWaveSize = 0
+            Terrain.WaterWaveSpeed = 0
+            Terrain.WaterReflectance = 0
+        end
+
+        -- Clean up existing workspace objects
+        for _, v in pairs(workspace:GetDescendants()) do
+            applyFpsBoostToObject(v)
+        end
+    end)
+end
+
 local function toggleContinuousFPSBoost(state)
     fpsBoostActive = state
     if state then
-        registerThread(function()
-            while fpsBoostActive do
-                pcall(function()
-                    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-                    local Lighting = game:GetService("Lighting")
-                    Lighting.GlobalShadows = false
-                    Lighting.FogEnd = 9e9
-                    
-                    for _, v in pairs(Lighting:GetDescendants()) do
-                        if v:IsA("PostEffect") or v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("ColorCorrectionEffect") or v:IsA("BloomEffect") or v:IsA("DepthOfFieldEffect") then
-                            v.Enabled = false
-                        end
-                    end
-
-                    local Terrain = workspace:FindFirstChildOfClass("Terrain")
-                    if Terrain then
-                        Terrain.WaterWaveSize = 0
-                        Terrain.WaterWaveSpeed = 0
-                        Terrain.WaterReflectance = 0
-                    end
-
-                    for _, v in pairs(workspace:GetDescendants()) do
-                        if v:IsA("BasePart") or v:IsA("MeshPart") then
-                            if v.Material ~= Enum.Material.SmoothPlastic then
-                                v.Material = Enum.Material.SmoothPlastic
-                                v.Reflectance = 0
-                                v.CastShadow = false
-                            end
-                        elseif v:IsA("Decal") or v:IsA("Texture") or v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Sparkles") or v:IsA("Smoke") or v:IsA("Fire") then
-                            v:Destroy()
-                        end
-                    end
-                end)
-                task.wait(5) 
-            end
+        -- Run the initial heavy cleanup ONCE
+        initialFpsBoost()
+        
+        -- Listen for new objects being added to workspace and Lighting
+        local conn1 = workspace.DescendantAdded:Connect(function(obj)
+            applyFpsBoostToObject(obj)
         end)
+        local conn2 = game:GetService("Lighting").DescendantAdded:Connect(function(obj)
+            applyFpsBoostToObject(obj)
+        end)
+        table.insert(fpsConnections, conn1)
+        table.insert(fpsConnections, conn2)
+    else
+        -- Disconnect all event listeners
+        for _, conn in ipairs(fpsConnections) do
+            pcall(function() conn:Disconnect() end)
+        end
+        fpsConnections = {}
     end
 end
 
@@ -815,6 +883,196 @@ local actionsConfig = {
     { Tab = MiscTogglesFrame, Name = "Table ESP", IsToggleCustom = true, Action = toggleTableESP },
     { Tab = MiscTogglesFrame, Name = "Auto FPS Boost", IsToggleCustom = true, Action = toggleContinuousFPSBoost } 
 }
+
+-- ============================================================
+-- === AUTO COUNTRY SELECT FOR WORLD CUP (Integrated into Autofarm)
+-- ============================================================
+
+-- Reference the remote that sets the player's country
+local SetPlayerCountry = RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("SetPlayerCountry", 10)
+
+-- Country list with optional image ID
+local countryOptions = {"USA", "Belgium", "Portugal", "England", "Brazil", "Argentina", "Spain", "France"}
+local countryImageMap = {
+    USA = "rbxassetid://76502735511314",
+    Belgium = "rbxassetid://89365929372691",
+    Portugal = "rbxassetid://130813352978477",
+    England = "rbxassetid://130089205978603",
+    Brazil = "rbxassetid://139029323188369",
+    Argentina = "rbxassetid://117719698184156",
+    Spain = "rbxassetid://72675024038912",
+    France = "rbxassetid://121281535745152",
+}
+
+-- State variables
+local autoCountryEnabled = false
+local selectedCountry = "USA" -- default
+local hasSelectedThisSession = false  -- prevent re-firing if already selected
+
+-- Function to actually select the country
+local function trySelectCountry()
+    -- Check if World Cup is active
+    local activeWeather = RS:FindFirstChild("ActiveWeather")
+    if not activeWeather or activeWeather.Value ~= "WorldCup" then
+        return false
+    end
+
+    -- Avoid spamming if we already selected one this session
+    if hasSelectedThisSession then
+        return true
+    end
+
+    pcall(function()
+        -- Fire the main country selection remote
+        if SetPlayerCountry then
+            SetPlayerCountry:FireServer(selectedCountry)
+        end
+
+        -- Also update the global country image if that function exists
+        if _G.SetWorldCupCountry and countryImageMap[selectedCountry] then
+            _G.SetWorldCupCountry(countryImageMap[selectedCountry])
+        end
+
+        -- You could also fire the kit remote if you want the shirt/pants/trail
+        local WorldCupKit = RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("WorldCupKit", 5)
+        if WorldCupKit then
+            -- Get the shirt/pants IDs from the country table (hardcoded from the original script)
+            local countryData = {
+                USA = {shirtId = 73296272711535, pantsId = 96913574679933},
+                France = {shirtId = 112645314552199, pantsId = 129402259060225},
+                Spain = {shirtId = 72691187130059, pantsId = 110152551144685},
+                Argentina = {shirtId = 121144366710128, pantsId = 115213449183837},
+                Brazil = {shirtId = 101302030512816, pantsId = 91549522860098},
+                England = {shirtId = 107060255746071, pantsId = 11588596108},
+                Portugal = {shirtId = 18837319900, pantsId = 113457248618129},
+                Belgium = {shirtId = 113655360620987, pantsId = 104620621426486},
+            }
+            local cd = countryData[selectedCountry]
+            if cd then
+                WorldCupKit:FireServer(cd.shirtId, cd.pantsId)
+            end
+        end
+
+        hasSelectedThisSession = true
+        debugLog("Auto-selected country: " .. selectedCountry)
+    end)
+    return true
+end
+
+-- Reset selection flag when weather changes away from WorldCup (so it can fire again later)
+if not _G._autoCountryWeatherListener then
+    local weatherEvent = RS:WaitForChild("WeatherChanged", 10)
+    if weatherEvent then
+        local conn = weatherEvent.OnClientEvent:Connect(function(newWeather)
+            if newWeather ~= "WorldCup" then
+                hasSelectedThisSession = false
+                debugLog("World Cup ended, resetting auto-country flag.")
+            end
+        end)
+        registerConnection(conn)
+        _G._autoCountryWeatherListener = true
+    end
+end
+
+-- === BUILD THE UI (Button + Dropdown in AutoFarmContainer) ===
+
+-- Main toggle button
+local autoCountryBtn = Instance.new("TextButton")
+autoCountryBtn.Size = UDim2.new(0, 143, 0, 34)
+autoCountryBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+autoCountryBtn.Text = "Auto Country: OFF"
+autoCountryBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
+autoCountryBtn.Font = Enum.Font.GothamSemibold
+autoCountryBtn.TextSize = 11
+autoCountryBtn.LayoutOrder = 1000  -- Force to be last in the grid
+autoCountryBtn.Parent = AutoFarmContainer
+
+local autoBtnCorner = Instance.new("UICorner", autoCountryBtn)
+autoBtnCorner.CornerRadius = UDim.new(0, 6)
+
+local autoBtnStroke = Instance.new("UIStroke", autoCountryBtn)
+autoBtnStroke.Color = Color3.fromRGB(50, 50, 60)
+
+-- Country picker dropdown (like Play Again table selector)
+local countryPickerBtn = Instance.new("TextButton")
+countryPickerBtn.Size = UDim2.new(0, 38, 1, -10)
+countryPickerBtn.Position = UDim2.new(1, -43, 0, 5)
+countryPickerBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+countryPickerBtn.Text = selectedCountry:sub(1,3)
+countryPickerBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+countryPickerBtn.Font = Enum.Font.GothamBold
+countryPickerBtn.TextSize = 11
+countryPickerBtn.ZIndex = 5
+countryPickerBtn.Parent = autoCountryBtn
+Instance.new("UICorner", countryPickerBtn).CornerRadius = UDim.new(0, 4)
+
+-- Dropdown list (placed relative to MainFrame)
+local countryListFrame = Instance.new("ScrollingFrame")
+countryListFrame.Size = UDim2.new(0, 60, 0, 120)
+countryListFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+countryListFrame.BorderSizePixel = 0
+countryListFrame.ScrollBarThickness = 2
+countryListFrame.ZIndex = 50
+countryListFrame.Visible = false
+countryListFrame.Parent = MainFrame
+
+local countryListLayout = Instance.new("UIListLayout", countryListFrame)
+countryListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Populate country list
+for _, country in ipairs(countryOptions) do
+    local opt = Instance.new("TextButton", countryListFrame)
+    opt.Size = UDim2.new(1, 0, 0, 22)
+    opt.BackgroundTransparency = 1
+    opt.Text = country
+    opt.TextColor3 = Color3.fromRGB(200, 200, 200)
+    opt.Font = Enum.Font.GothamSemibold
+    opt.TextSize = 11
+    opt.ZIndex = 51
+
+    registerConnection(opt.MouseButton1Click:Connect(function()
+        selectedCountry = country
+        countryPickerBtn.Text = selectedCountry:sub(1,3)
+        countryListFrame.Visible = false
+    end))
+end
+
+-- Show/hide dropdown when clicking the picker
+registerConnection(countryPickerBtn.MouseButton1Click:Connect(function()
+    countryListFrame.Visible = not countryListFrame.Visible
+    if countryListFrame.Visible then
+        local btnAbs = countryPickerBtn.AbsolutePosition
+        local mainAbs = MainFrame.AbsolutePosition
+        countryListFrame.Position = UDim2.new(0, btnAbs.X - mainAbs.X - 10, 0, btnAbs.Y - mainAbs.Y + countryPickerBtn.AbsoluteSize.Y + 2)
+    end
+end))
+
+-- Toggle logic for the Auto Country button
+registerConnection(autoCountryBtn.MouseButton1Click:Connect(function()
+    autoCountryEnabled = not autoCountryEnabled
+    if autoCountryEnabled then
+        autoCountryBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 110)
+        autoCountryBtn.TextColor3 = Color3.fromRGB(20, 35, 20)
+        autoCountryBtn.Text = "Auto Country: ON"
+        autoBtnStroke.Color = Color3.fromRGB(0, 200, 110)
+        -- Start auto-select loop
+        registerThread(function()
+            while autoCountryEnabled do
+                trySelectCountry()
+                task.wait(5)
+            end
+        end)
+    else
+        autoCountryBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+        autoCountryBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
+        autoCountryBtn.Text = "Auto Country: OFF"
+        autoBtnStroke.Color = Color3.fromRGB(50, 50, 60)
+    end
+end))
+
+-- ============================================================
+-- END AUTO COUNTRY SELECT
+-- ============================================================
 
 for _, config in ipairs(actionsConfig) do
     local btn = Instance.new("TextButton")
@@ -1020,7 +1278,7 @@ ConfigNameBox.TextXAlignment = Enum.TextXAlignment.Left
 
 -- Permanent List Container (height reduced to 80)
 local ListContainer = Instance.new("Frame", ConfigSection)
-ListContainer.Size = UDim2.new(1, -10, 0, 80)   -- <<< shortened from 110
+ListContainer.Size = UDim2.new(1, -10, 0, 80)
 ListContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 ListContainer.ClipsDescendants = true
 Instance.new("UICorner", ListContainer).CornerRadius = UDim.new(0, 6)
