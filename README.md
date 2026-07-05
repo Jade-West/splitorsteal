@@ -882,27 +882,16 @@ local actionsConfig = {
 }
 
 -- ============================================================
--- === AUTO COUNTRY SELECT FOR WORLD CUP =======================
+-- === AUTO COUNTRY SELECT (DIRECT FRAME CLICKS) ==============
 -- ============================================================
 
-local SetPlayerCountry = RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("SetPlayerCountry", 10)
-
 local countryOptions = {"USA", "Belgium", "Portugal", "England", "Brazil", "Argentina", "Spain", "France"}
-local countryImageMap = {
-    USA = "rbxassetid://76502735511314",
-    Belgium = "rbxassetid://89365929372691",
-    Portugal = "rbxassetid://130813352978477",
-    England = "rbxassetid://130089205978603",
-    Brazil = "rbxassetid://139029323188369",
-    Argentina = "rbxassetid://117719698184156",
-    Spain = "rbxassetid://72675024038912",
-    France = "rbxassetid://121281535745152",
-}
 
 local autoCountryEnabled = false
 local selectedCountry = "USA"
-local hasSelectedThisSession = false
+local alreadySelectedThisEvent = false
 
+-- Our custom UI (unchanged)
 local autoCountryBtn = Instance.new("TextButton")
 autoCountryBtn.Size = UDim2.new(0, 143, 0, 34)
 autoCountryBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
@@ -913,9 +902,7 @@ autoCountryBtn.TextSize = 11
 autoCountryBtn.LayoutOrder = 1000
 autoCountryBtn.Parent = AutoFarmContainer
 
-local autoBtnCorner = Instance.new("UICorner", autoCountryBtn)
-autoBtnCorner.CornerRadius = UDim.new(0, 6)
-
+Instance.new("UICorner", autoCountryBtn).CornerRadius = UDim.new(0, 6)
 local autoBtnStroke = Instance.new("UIStroke", autoCountryBtn)
 autoBtnStroke.Color = Color3.fromRGB(50, 50, 60)
 
@@ -952,9 +939,9 @@ for _, country in ipairs(countryOptions) do
     opt.Font = Enum.Font.GothamSemibold
     opt.TextSize = 11
     opt.ZIndex = 51
-
     registerConnection(opt.MouseButton1Click:Connect(function()
-        setSelectedCountry(country)
+        selectedCountry = country
+        countryPickerBtn.Text = selectedCountry:sub(1,3)
         countryListFrame.Visible = false
     end))
 end
@@ -968,6 +955,118 @@ registerConnection(countryPickerBtn.MouseButton1Click:Connect(function()
     end
 end))
 
+-- ==============================
+-- GUI CONTROL (force open/close)
+-- ==============================
+local function getCountryScriptEnv()
+    local selectGui = LocalPlayer.PlayerGui:FindFirstChild("SelectCountry")
+    if not selectGui then return nil end
+    local scriptObj = selectGui:FindFirstChildWhichIsA("LocalScript")
+    if not scriptObj then return nil end
+
+    local env
+    pcall(function() env = getsenv(scriptObj) end)
+    if not env then
+        pcall(function() env = getfenv(scriptObj) end)
+    end
+    return env
+end
+
+local function safeOpenGUI()
+    local env = getCountryScriptEnv()
+    if env and env.openScreen then
+        pcall(env.openScreen)
+        debugLog("Called env.openScreen()")
+    else
+        -- Manual fallback
+        local selectGui = LocalPlayer.PlayerGui:FindFirstChild("SelectCountry")
+        if selectGui then
+            selectGui.Enabled = true
+            local countryFrame = selectGui:FindFirstChild("Country")
+            if countryFrame then
+                countryFrame.Visible = true
+                local main = countryFrame:FindFirstChild("Main")
+                if main then
+                    local uiScale = main:FindFirstChildWhichIsA("UIScale")
+                    if uiScale then uiScale.Scale = 1 end
+                end
+            end
+        end
+        if _G.OpenBlur then pcall(_G.OpenBlur) end
+        debugLog("Manual GUI open")
+    end
+end
+
+local function safeCloseGUI()
+    local env = getCountryScriptEnv()
+    if env and env.closeScreen then
+        pcall(env.closeScreen)
+    else
+        local countryFrame = LocalPlayer.PlayerGui:FindFirstChild("SelectCountry") and LocalPlayer.PlayerGui.SelectCountry:FindFirstChild("Country")
+        if countryFrame then
+            countryFrame.Visible = false
+        end
+        if _G.ForceCloseBlur then pcall(_G.ForceCloseBlur) end
+    end
+    debugLog("GUI closed")
+end
+
+-- Click country frame and confirm using the Gemini method (+58 Y offset)
+local function clickCountryInGUI()
+    local selectGui = LocalPlayer.PlayerGui:FindFirstChild("SelectCountry")
+    if not selectGui then return false end
+    local countryFrame = selectGui:FindFirstChild("Country")
+    if not countryFrame or not countryFrame.Visible then return false end
+    local content = countryFrame.Main and countryFrame.Main:FindFirstChild("Content")
+    if not content then return false end
+    local mainHolder = content:FindFirstChild("MainHolder")
+    local confirmButton = content:FindFirstChild("ButtonsHolder") and content.ButtonsHolder:FindFirstChild("Confirm")
+    if not (mainHolder and confirmButton) then return false end
+
+    -- Get the selected country frame
+    local countryButton = mainHolder:FindFirstChild(selectedCountry)
+    if not countryButton or not countryButton.AbsolutePosition then return false end
+
+    -- Click the country frame
+    local x = countryButton.AbsolutePosition.X + (countryButton.AbsoluteSize.X / 2)
+    local y = countryButton.AbsolutePosition.Y + (countryButton.AbsoluteSize.Y / 2) + 58
+    debugLog("Clicking country: " .. selectedCountry .. " at " .. x .. ", " .. y)
+    VIM:SendMouseButtonEvent(x, y, 0, true, game, 1)
+    task.wait(0.05)
+    VIM:SendMouseButtonEvent(x, y, 0, false, game, 1)
+    debugLog("Country clicked")
+
+    task.wait(0.3)
+
+    -- Click Confirm
+    if confirmButton and confirmButton.AbsolutePosition then
+        local cx = confirmButton.AbsolutePosition.X + (confirmButton.AbsoluteSize.X / 2)
+        local cy = confirmButton.AbsolutePosition.Y + (confirmButton.AbsoluteSize.Y / 2) + 58
+        debugLog("Clicking Confirm at " .. cx .. ", " .. cy)
+        VIM:SendMouseButtonEvent(cx, cy, 0, true, game, 1)
+        task.wait(0.05)
+        VIM:SendMouseButtonEvent(cx, cy, 0, false, game, 1)
+        debugLog("Confirm clicked")
+    else
+        return false
+    end
+    return true
+end
+
+local function performFullSelection()
+    safeOpenGUI()
+    task.wait(0.5)
+    local ok = clickCountryInGUI()
+    if ok then
+        task.wait(0.5)
+        safeCloseGUI()
+    end
+    return ok
+end
+
+-- ==============================
+-- AUTO COUNTRY LOGIC
+-- ==============================
 local function setAutoCountryEnabled(state)
     if autoCountryEnabled == state then return end
     autoCountryEnabled = state
@@ -976,9 +1075,25 @@ local function setAutoCountryEnabled(state)
         autoCountryBtn.TextColor3 = Color3.fromRGB(20, 35, 20)
         autoCountryBtn.Text = "Auto Country: ON"
         autoBtnStroke.Color = Color3.fromRGB(0, 200, 110)
+
         registerThread(function()
             while autoCountryEnabled do
-                trySelectCountry()
+                if alreadySelectedThisEvent then
+                    task.wait(5)
+                    continue
+                end
+
+                local activeWeather = RS:FindFirstChild("ActiveWeather")
+                if activeWeather and activeWeather.Value == "WorldCup" then
+                    debugLog("WorldCup active, starting auto selection...")
+                    local success = pcall(performFullSelection)
+                    if success then
+                        alreadySelectedThisEvent = true
+                        debugLog("Auto selection completed successfully")
+                    else
+                        debugLog("Auto selection FAILED")
+                    end
+                end
                 task.wait(5)
             end
         end)
@@ -990,69 +1105,35 @@ local function setAutoCountryEnabled(state)
     end
 end
 
-function setSelectedCountry(country)
-    if table.find(countryOptions, country) then
-        selectedCountry = country
-        countryPickerBtn.Text = selectedCountry:sub(1,3)
+-- Reset when event ends
+local function onWeatherChanged(newWeather)
+    if newWeather ~= "WorldCup" then
+        alreadySelectedThisEvent = false
+        debugLog("World Cup ended – flag reset")
     end
 end
-
-local function trySelectCountry()
-    local activeWeather = RS:FindFirstChild("ActiveWeather")
-    if not activeWeather or activeWeather.Value ~= "WorldCup" then
-        return false
-    end
-
-    if hasSelectedThisSession then
-        return true
-    end
-
-    pcall(function()
-        if SetPlayerCountry then
-            SetPlayerCountry:FireServer(selectedCountry)
-        end
-
-        if _G.SetWorldCupCountry and countryImageMap[selectedCountry] then
-            _G.SetWorldCupCountry(countryImageMap[selectedCountry])
-        end
-
-        local WorldCupKit = RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("WorldCupKit", 5)
-        if WorldCupKit then
-            local countryData = {
-                USA = {shirtId = 73296272711535, pantsId = 96913574679933},
-                France = {shirtId = 112645314552199, pantsId = 129402259060225},
-                Spain = {shirtId = 72691187130059, pantsId = 110152551144685},
-                Argentina = {shirtId = 121144366710128, pantsId = 115213449183837},
-                Brazil = {shirtId = 101302030512816, pantsId = 91549522860098},
-                England = {shirtId = 107060255746071, pantsId = 11588596108},
-                Portugal = {shirtId = 18837319900, pantsId = 113457248618129},
-                Belgium = {shirtId = 113655360620987, pantsId = 104620621426486},
-            }
-            local cd = countryData[selectedCountry]
-            if cd then
-                WorldCupKit:FireServer(cd.shirtId, cd.pantsId)
-            end
-        end
-
-        hasSelectedThisSession = true
-        debugLog("Auto-selected country: " .. selectedCountry)
-    end)
-    return true
+local weatherEvent = RS:WaitForChild("WeatherChanged", 10)
+if weatherEvent then
+    registerConnection(weatherEvent.OnClientEvent:Connect(onWeatherChanged))
 end
 
-if not _G._autoCountryWeatherListener then
-    local weatherEvent = RS:WaitForChild("WeatherChanged", 10)
-    if weatherEvent then
-        local conn = weatherEvent.OnClientEvent:Connect(function(newWeather)
-            if newWeather ~= "WorldCup" then
-                hasSelectedThisSession = false
-                debugLog("World Cup ended, resetting auto-country flag.")
-            end
-        end)
-        registerConnection(conn)
-        _G._autoCountryWeatherListener = true
-    end
-end
+-- Test button
+local testCountryBtn = Instance.new("TextButton")
+testCountryBtn.Size = UDim2.new(0, 143, 0, 34)
+testCountryBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+testCountryBtn.Text = "Test Country Now"
+testCountryBtn.TextColor3 = Color3.fromRGB(255, 200, 0)
+testCountryBtn.Font = Enum.Font.GothamBold
+testCountryBtn.TextSize = 12
+testCountryBtn.LayoutOrder = 1001
+testCountryBtn.Parent = AutoFarmContainer
+Instance.new("UICorner", testCountryBtn).CornerRadius = UDim.new(0, 6)
+Instance.new("UIStroke", testCountryBtn).Color = Color3.fromRGB(50, 50, 60)
+
+registerConnection(testCountryBtn.MouseButton1Click:Connect(function()
+    debugLog("Test button pressed")
+    performFullSelection()
+end))
 
 registerConnection(autoCountryBtn.MouseButton1Click:Connect(function()
     setAutoCountryEnabled(not autoCountryEnabled)
@@ -1374,7 +1455,8 @@ local function loadConfigData(name, autoEnableSell)
             setAutoCountryEnabled(data.AutoCountryEnabled)
         end
         if data.SelectedCountry then
-            setSelectedCountry(data.SelectedCountry)
+            selectedCountry = data.SelectedCountry
+            countryPickerBtn.Text = selectedCountry:sub(1,3)
         end
         
         if autoEnableSell and sellThreshold > 0 then
