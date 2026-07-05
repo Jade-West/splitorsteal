@@ -882,7 +882,7 @@ local actionsConfig = {
 }
 
 -- ============================================================
--- === AUTO COUNTRY SELECT (DYNAMIC OFFSET, FIXED MOBILE) =====
+-- === AUTO COUNTRY SELECT (MOBILE RIGHT-OFFSET FIX) ==========
 -- ============================================================
 
 local countryOptions = {"USA", "Belgium", "Portugal", "England", "Brazil", "Argentina", "Spain", "France"}
@@ -1011,7 +1011,7 @@ local function safeCloseGUI()
     debugLog("GUI closed")
 end
 
--- Click country button and confirm – SAME dynamic offset as confirm button
+-- Click country button and confirm – MOBILE OFFSET ADDED
 local function clickCountryInGUI()
     local selectGui = LocalPlayer.PlayerGui:FindFirstChild("SelectCountry")
     if not selectGui then return false end
@@ -1038,8 +1038,14 @@ local function clickCountryInGUI()
     end)
     debugLog("Top bar offset: " .. tostring(topOffset))
 
-    -- Click the exact centre of DefaultSlot1
-    local x = clickTarget.AbsolutePosition.X + (clickTarget.AbsoluteSize.X / 2)
+    -- Mobile right-offset (only for touch devices)
+    local extraOffsetX = 0
+    if UIS.TouchEnabled then
+        extraOffsetX = 15   -- shift right by 15 pixels on mobile/tablet
+    end
+
+    -- Click the exact centre of DefaultSlot1 + extraOffsetX
+    local x = clickTarget.AbsolutePosition.X + (clickTarget.AbsoluteSize.X / 2) + extraOffsetX
     local y = clickTarget.AbsolutePosition.Y + (clickTarget.AbsoluteSize.Y / 2) + topOffset
     debugLog("Clicking country: " .. selectedCountry .. " at " .. x .. ", " .. y)
     VIM:SendMouseButtonEvent(x, y, 0, true, game, 1)
@@ -1049,7 +1055,7 @@ local function clickCountryInGUI()
 
     task.wait(0.3)
 
-    -- Click Confirm (already works)
+    -- Click Confirm (no extra offset needed)
     if confirmButton and confirmButton.AbsolutePosition then
         local cx = confirmButton.AbsolutePosition.X + (confirmButton.AbsoluteSize.X / 2)
         local cy = confirmButton.AbsolutePosition.Y + (confirmButton.AbsoluteSize.Y / 2) + topOffset
