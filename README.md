@@ -23,7 +23,6 @@ local remotesToBlock = {
 local function blockRemote(remote)
     if not remote or not remote:IsA("RemoteEvent") then return end
 
-    -- Build a fake signal that consumes all connections and never fires
     local fakeSignal = {
         Connect = function(self, callback)
             print("[BLOCKED] " .. remote.Name)
@@ -32,16 +31,14 @@ local function blockRemote(remote)
                 Disconnect = function() end
             }
         end,
-        Wait = function() while true do task.wait() end end, -- optional, just in case
+        Wait = function() while true do task.wait() end end,
     }
 
-    -- Attempt to replace the whole OnClientEvent property (kills old connections)
     local success, err = pcall(function()
         rawset(remote, "OnClientEvent", fakeSignal)
     end)
 
     if not success then
-        -- Fallback: at least block new connections from now on
         pcall(function()
             local signal = remote.OnClientEvent
             if signal then
@@ -52,7 +49,6 @@ local function blockRemote(remote)
     end
 end
 
--- Find and block all matching remotes
 local eventsFolder = RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events", 10)
 if eventsFolder then
     for _, remote in ipairs(eventsFolder:GetDescendants()) do
@@ -466,7 +462,7 @@ local selectedRarities = {}
 local sellQueue = {}
 local isSelling = false
 local rarityUIElements = {} 
-local lastSellActivity = 0  -- to detect stuck selling
+local lastSellActivity = 0
 
 local allRarities = {
     "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", 
@@ -636,7 +632,6 @@ registerThread(function()
         return success and result or nil
     end
 
-    -- Click the UnequipAll button to refresh inventory visuals
     local function clickUnequipAll()
         pcall(function()
             local inventoryHUD = LocalPlayer.PlayerGui:FindFirstChild("FullGameGUIV2") and LocalPlayer.PlayerGui.FullGameGUIV2:FindFirstChild("InventoryHUD")
@@ -657,10 +652,9 @@ registerThread(function()
         isSelling = true
         lastSellActivity = tick()
         registerThread(function()
-            -- Process one item at a time with a short delay, and retry if needed
             local queueSnapshot = {}
             for k, v in pairs(sellQueue) do queueSnapshot[k] = v end
-            sellQueue = {}  -- clear global queue (will be repopulated next scan)
+            sellQueue = {}
             for itemId, _ in pairs(queueSnapshot) do
                 if not autoSellEnabled then break end
                 local success = false
@@ -676,7 +670,6 @@ registerThread(function()
                 end
                 if not success then
                     debugLog("FAILED to sell item ID: " .. tostring(itemId) .. " after 3 attempts")
-                    -- Reinsert it for next cycle, but only if it's still valid
                     sellQueue[itemId] = true
                 end
                 task.wait(0.15)
@@ -696,7 +689,6 @@ registerThread(function()
                 return 
             end
 
-            -- Build a set of IDs currently visible in the UI
             local uiItemIds = {}
             for _, itemFrame in ipairs(scrollFrame:GetChildren()) do
                 if not itemFrame:IsA("UIListLayout") and not itemFrame:IsA("UIGridLayout") and not itemFrame:IsA("UIPadding") then
@@ -723,7 +715,6 @@ registerThread(function()
                 end
             end
 
-            -- Remove queue entries that are no longer visible (already sold or vanished)
             for qId in pairs(sellQueue) do
                 if not uiItemIds[qId] then
                     sellQueue[qId] = nil
@@ -733,17 +724,15 @@ registerThread(function()
         isScanning = false
     end
 
-    -- Combined refresh: click UnequipAll, then scan
     local function fullRefreshCycle()
         clickUnequipAll()
-        task.wait(0.3)  -- let UI update
+        task.wait(0.3)
         scanUIForItems()
         if next(sellQueue) ~= nil then
             processSellQueue()
         end
     end
 
-    -- Listen to inventory updates (fires when new items arrive or inventory changes)
     if invRemote then
         registerConnection(invRemote.OnClientEvent:Connect(function()
             if not autoSellEnabled then return end
@@ -752,11 +741,9 @@ registerThread(function()
         end))
     end
 
-    -- Main periodic loop (every 5 seconds)
     registerThread(function()
         while task.wait(5) do
             if not autoSellEnabled then continue end
-            -- If selling seems stuck for more than 15 seconds, force reset
             if isSelling and (tick() - lastSellActivity > 15) then
                 debugLog("Selling appears stuck, resetting queue")
                 sellQueue = {}
@@ -770,7 +757,7 @@ end)
 
 -- === CPU/FPS BOOST (NO LAG SPIKES) ===
 local fpsBoostActive = false
-local fpsConnections = {} -- store connections to disconnect later
+local fpsConnections = {}
 
 local function applyFpsBoostToObject(obj)
     pcall(function()
@@ -789,19 +776,16 @@ local function applyFpsBoostToObject(obj)
 end
 
 local function initialFpsBoost()
-    -- Graphics settings
     pcall(function()
         settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
         local Lighting = game:GetService("Lighting")
         Lighting.GlobalShadows = false
         Lighting.FogEnd = 9e9
         
-        -- Disable existing post-effects in Lighting
         for _, v in pairs(Lighting:GetDescendants()) do
             applyFpsBoostToObject(v)
         end
 
-        -- Terrain
         local Terrain = workspace:FindFirstChildOfClass("Terrain")
         if Terrain then
             Terrain.WaterWaveSize = 0
@@ -809,7 +793,6 @@ local function initialFpsBoost()
             Terrain.WaterReflectance = 0
         end
 
-        -- Clean up existing workspace objects
         for _, v in pairs(workspace:GetDescendants()) do
             applyFpsBoostToObject(v)
         end
@@ -819,10 +802,7 @@ end
 local function toggleContinuousFPSBoost(state)
     fpsBoostActive = state
     if state then
-        -- Run the initial heavy cleanup ONCE
         initialFpsBoost()
-        
-        -- Listen for new objects being added to workspace and Lighting
         local conn1 = workspace.DescendantAdded:Connect(function(obj)
             applyFpsBoostToObject(obj)
         end)
@@ -832,7 +812,6 @@ local function toggleContinuousFPSBoost(state)
         table.insert(fpsConnections, conn1)
         table.insert(fpsConnections, conn2)
     else
-        -- Disconnect all event listeners
         for _, conn in ipairs(fpsConnections) do
             pcall(function() conn:Disconnect() end)
         end
@@ -903,13 +882,11 @@ local actionsConfig = {
 }
 
 -- ============================================================
--- === AUTO COUNTRY SELECT FOR WORLD CUP (Integrated into Autofarm)
+-- === AUTO COUNTRY SELECT FOR WORLD CUP =======================
 -- ============================================================
 
--- Reference the remote that sets the player's country
 local SetPlayerCountry = RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("SetPlayerCountry", 10)
 
--- Country list with optional image ID
 local countryOptions = {"USA", "Belgium", "Portugal", "England", "Brazil", "Argentina", "Spain", "France"}
 local countryImageMap = {
     USA = "rbxassetid://76502735511314",
@@ -922,39 +899,125 @@ local countryImageMap = {
     France = "rbxassetid://121281535745152",
 }
 
--- State variables
 local autoCountryEnabled = false
-local selectedCountry = "USA" -- default
-local hasSelectedThisSession = false  -- prevent re-firing if already selected
+local selectedCountry = "USA"
+local hasSelectedThisSession = false
 
--- Function to actually select the country
+local autoCountryBtn = Instance.new("TextButton")
+autoCountryBtn.Size = UDim2.new(0, 143, 0, 34)
+autoCountryBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+autoCountryBtn.Text = "Auto Country: OFF"
+autoCountryBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
+autoCountryBtn.Font = Enum.Font.GothamSemibold
+autoCountryBtn.TextSize = 11
+autoCountryBtn.LayoutOrder = 1000
+autoCountryBtn.Parent = AutoFarmContainer
+
+local autoBtnCorner = Instance.new("UICorner", autoCountryBtn)
+autoBtnCorner.CornerRadius = UDim.new(0, 6)
+
+local autoBtnStroke = Instance.new("UIStroke", autoCountryBtn)
+autoBtnStroke.Color = Color3.fromRGB(50, 50, 60)
+
+local countryPickerBtn = Instance.new("TextButton")
+countryPickerBtn.Size = UDim2.new(0, 38, 1, -10)
+countryPickerBtn.Position = UDim2.new(1, -43, 0, 5)
+countryPickerBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+countryPickerBtn.Text = selectedCountry:sub(1,3)
+countryPickerBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+countryPickerBtn.Font = Enum.Font.GothamBold
+countryPickerBtn.TextSize = 11
+countryPickerBtn.ZIndex = 5
+countryPickerBtn.Parent = autoCountryBtn
+Instance.new("UICorner", countryPickerBtn).CornerRadius = UDim.new(0, 4)
+
+local countryListFrame = Instance.new("ScrollingFrame")
+countryListFrame.Size = UDim2.new(0, 60, 0, 120)
+countryListFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+countryListFrame.BorderSizePixel = 0
+countryListFrame.ScrollBarThickness = 2
+countryListFrame.ZIndex = 50
+countryListFrame.Visible = false
+countryListFrame.Parent = MainFrame
+
+local countryListLayout = Instance.new("UIListLayout", countryListFrame)
+countryListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+for _, country in ipairs(countryOptions) do
+    local opt = Instance.new("TextButton", countryListFrame)
+    opt.Size = UDim2.new(1, 0, 0, 22)
+    opt.BackgroundTransparency = 1
+    opt.Text = country
+    opt.TextColor3 = Color3.fromRGB(200, 200, 200)
+    opt.Font = Enum.Font.GothamSemibold
+    opt.TextSize = 11
+    opt.ZIndex = 51
+
+    registerConnection(opt.MouseButton1Click:Connect(function()
+        setSelectedCountry(country)
+        countryListFrame.Visible = false
+    end))
+end
+
+registerConnection(countryPickerBtn.MouseButton1Click:Connect(function()
+    countryListFrame.Visible = not countryListFrame.Visible
+    if countryListFrame.Visible then
+        local btnAbs = countryPickerBtn.AbsolutePosition
+        local mainAbs = MainFrame.AbsolutePosition
+        countryListFrame.Position = UDim2.new(0, btnAbs.X - mainAbs.X - 10, 0, btnAbs.Y - mainAbs.Y + countryPickerBtn.AbsoluteSize.Y + 2)
+    end
+end))
+
+local function setAutoCountryEnabled(state)
+    if autoCountryEnabled == state then return end
+    autoCountryEnabled = state
+    if state then
+        autoCountryBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 110)
+        autoCountryBtn.TextColor3 = Color3.fromRGB(20, 35, 20)
+        autoCountryBtn.Text = "Auto Country: ON"
+        autoBtnStroke.Color = Color3.fromRGB(0, 200, 110)
+        registerThread(function()
+            while autoCountryEnabled do
+                trySelectCountry()
+                task.wait(5)
+            end
+        end)
+    else
+        autoCountryBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+        autoCountryBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
+        autoCountryBtn.Text = "Auto Country: OFF"
+        autoBtnStroke.Color = Color3.fromRGB(50, 50, 60)
+    end
+end
+
+function setSelectedCountry(country)
+    if table.find(countryOptions, country) then
+        selectedCountry = country
+        countryPickerBtn.Text = selectedCountry:sub(1,3)
+    end
+end
+
 local function trySelectCountry()
-    -- Check if World Cup is active
     local activeWeather = RS:FindFirstChild("ActiveWeather")
     if not activeWeather or activeWeather.Value ~= "WorldCup" then
         return false
     end
 
-    -- Avoid spamming if we already selected one this session
     if hasSelectedThisSession then
         return true
     end
 
     pcall(function()
-        -- Fire the main country selection remote
         if SetPlayerCountry then
             SetPlayerCountry:FireServer(selectedCountry)
         end
 
-        -- Also update the global country image if that function exists
         if _G.SetWorldCupCountry and countryImageMap[selectedCountry] then
             _G.SetWorldCupCountry(countryImageMap[selectedCountry])
         end
 
-        -- You could also fire the kit remote if you want the shirt/pants/trail
         local WorldCupKit = RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("WorldCupKit", 5)
         if WorldCupKit then
-            -- Get the shirt/pants IDs from the country table (hardcoded from the original script)
             local countryData = {
                 USA = {shirtId = 73296272711535, pantsId = 96913574679933},
                 France = {shirtId = 112645314552199, pantsId = 129402259060225},
@@ -977,7 +1040,6 @@ local function trySelectCountry()
     return true
 end
 
--- Reset selection flag when weather changes away from WorldCup (so it can fire again later)
 if not _G._autoCountryWeatherListener then
     local weatherEvent = RS:WaitForChild("WeatherChanged", 10)
     if weatherEvent then
@@ -992,100 +1054,8 @@ if not _G._autoCountryWeatherListener then
     end
 end
 
--- === BUILD THE UI (Button + Dropdown in AutoFarmContainer) ===
-
--- Main toggle button
-local autoCountryBtn = Instance.new("TextButton")
-autoCountryBtn.Size = UDim2.new(0, 143, 0, 34)
-autoCountryBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-autoCountryBtn.Text = "Auto Country: OFF"
-autoCountryBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
-autoCountryBtn.Font = Enum.Font.GothamSemibold
-autoCountryBtn.TextSize = 11
-autoCountryBtn.LayoutOrder = 1000  -- Force to be last in the grid
-autoCountryBtn.Parent = AutoFarmContainer
-
-local autoBtnCorner = Instance.new("UICorner", autoCountryBtn)
-autoBtnCorner.CornerRadius = UDim.new(0, 6)
-
-local autoBtnStroke = Instance.new("UIStroke", autoCountryBtn)
-autoBtnStroke.Color = Color3.fromRGB(50, 50, 60)
-
--- Country picker dropdown (like Play Again table selector)
-local countryPickerBtn = Instance.new("TextButton")
-countryPickerBtn.Size = UDim2.new(0, 38, 1, -10)
-countryPickerBtn.Position = UDim2.new(1, -43, 0, 5)
-countryPickerBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
-countryPickerBtn.Text = selectedCountry:sub(1,3)
-countryPickerBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-countryPickerBtn.Font = Enum.Font.GothamBold
-countryPickerBtn.TextSize = 11
-countryPickerBtn.ZIndex = 5
-countryPickerBtn.Parent = autoCountryBtn
-Instance.new("UICorner", countryPickerBtn).CornerRadius = UDim.new(0, 4)
-
--- Dropdown list (placed relative to MainFrame)
-local countryListFrame = Instance.new("ScrollingFrame")
-countryListFrame.Size = UDim2.new(0, 60, 0, 120)
-countryListFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-countryListFrame.BorderSizePixel = 0
-countryListFrame.ScrollBarThickness = 2
-countryListFrame.ZIndex = 50
-countryListFrame.Visible = false
-countryListFrame.Parent = MainFrame
-
-local countryListLayout = Instance.new("UIListLayout", countryListFrame)
-countryListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
--- Populate country list
-for _, country in ipairs(countryOptions) do
-    local opt = Instance.new("TextButton", countryListFrame)
-    opt.Size = UDim2.new(1, 0, 0, 22)
-    opt.BackgroundTransparency = 1
-    opt.Text = country
-    opt.TextColor3 = Color3.fromRGB(200, 200, 200)
-    opt.Font = Enum.Font.GothamSemibold
-    opt.TextSize = 11
-    opt.ZIndex = 51
-
-    registerConnection(opt.MouseButton1Click:Connect(function()
-        selectedCountry = country
-        countryPickerBtn.Text = selectedCountry:sub(1,3)
-        countryListFrame.Visible = false
-    end))
-end
-
--- Show/hide dropdown when clicking the picker
-registerConnection(countryPickerBtn.MouseButton1Click:Connect(function()
-    countryListFrame.Visible = not countryListFrame.Visible
-    if countryListFrame.Visible then
-        local btnAbs = countryPickerBtn.AbsolutePosition
-        local mainAbs = MainFrame.AbsolutePosition
-        countryListFrame.Position = UDim2.new(0, btnAbs.X - mainAbs.X - 10, 0, btnAbs.Y - mainAbs.Y + countryPickerBtn.AbsoluteSize.Y + 2)
-    end
-end))
-
--- Toggle logic for the Auto Country button
 registerConnection(autoCountryBtn.MouseButton1Click:Connect(function()
-    autoCountryEnabled = not autoCountryEnabled
-    if autoCountryEnabled then
-        autoCountryBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 110)
-        autoCountryBtn.TextColor3 = Color3.fromRGB(20, 35, 20)
-        autoCountryBtn.Text = "Auto Country: ON"
-        autoBtnStroke.Color = Color3.fromRGB(0, 200, 110)
-        -- Start auto-select loop
-        registerThread(function()
-            while autoCountryEnabled do
-                trySelectCountry()
-                task.wait(5)
-            end
-        end)
-    else
-        autoCountryBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-        autoCountryBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
-        autoCountryBtn.Text = "Auto Country: OFF"
-        autoBtnStroke.Color = Color3.fromRGB(50, 50, 60)
-    end
+    setAutoCountryEnabled(not autoCountryEnabled)
 end))
 
 -- ============================================================
@@ -1268,7 +1238,6 @@ ConfigTitle.Font = Enum.Font.GothamBold
 ConfigTitle.TextSize = 12
 ConfigTitle.TextXAlignment = Enum.TextXAlignment.Left
 
--- Search Bar / Input
 local SearchBoxContainer = Instance.new("Frame", ConfigSection)
 SearchBoxContainer.Size = UDim2.new(1, -10, 0, 34)
 SearchBoxContainer.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
@@ -1294,7 +1263,6 @@ ConfigNameBox.Font = Enum.Font.GothamSemibold
 ConfigNameBox.TextSize = 12
 ConfigNameBox.TextXAlignment = Enum.TextXAlignment.Left
 
--- Permanent List Container (height reduced to 80)
 local ListContainer = Instance.new("Frame", ConfigSection)
 ListContainer.Size = UDim2.new(1, -10, 0, 80)
 ListContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
@@ -1377,12 +1345,10 @@ local function refreshConfigList(filterText)
     end)
 end
 
--- Refresh List Hooks
 registerConnection(ConfigNameBox.Focused:Connect(function() SearchStroke.Color = Color3.fromRGB(0, 200, 110) end))
 registerConnection(ConfigNameBox.FocusLost:Connect(function() SearchStroke.Color = Color3.fromRGB(50, 50, 60) end))
 registerConnection(ConfigNameBox:GetPropertyChangedSignal("Text"):Connect(function() refreshConfigList(ConfigNameBox.Text) end))
 
--- Central Loading Function
 local function loadConfigData(name, autoEnableSell)
     pcall(function()
         local json = readfile(CONFIG_FOLDER .. "/" .. name .. ".json")
@@ -1404,6 +1370,12 @@ local function loadConfigData(name, autoEnableSell)
                 end
             end
         end
+        if data.AutoCountryEnabled ~= nil then
+            setAutoCountryEnabled(data.AutoCountryEnabled)
+        end
+        if data.SelectedCountry then
+            setSelectedCountry(data.SelectedCountry)
+        end
         
         if autoEnableSell and sellThreshold > 0 then
             autoSellEnabled = true
@@ -1418,7 +1390,6 @@ local function loadConfigData(name, autoEnableSell)
     end)
 end
 
--- Action Buttons
 local ActionBtnContainer = Instance.new("Frame", ConfigSection)
 ActionBtnContainer.Size = UDim2.new(1, -10, 0, 34)
 ActionBtnContainer.BackgroundTransparency = 1
@@ -1454,7 +1425,9 @@ registerConnection(SaveBtn.MouseButton1Click:Connect(function()
     local data = {
         Toggles = activeToggles,
         SellThreshold = sellThreshold,
-        Rarities = selectedRarities
+        Rarities = selectedRarities,
+        AutoCountryEnabled = autoCountryEnabled,
+        SelectedCountry = selectedCountry,
     }
     
     pcall(function()
