@@ -882,7 +882,7 @@ local actionsConfig = {
 }
 
 -- ============================================================
--- === AUTO COUNTRY SELECT (FIXED FOR MOBILE) =================
+-- === AUTO COUNTRY SELECT (DYNAMIC TOP OFFSET) ===============
 -- ============================================================
 
 local countryOptions = {"USA", "Belgium", "Portugal", "England", "Brazil", "Argentina", "Spain", "France"}
@@ -1011,7 +1011,7 @@ local function safeCloseGUI()
     debugLog("GUI closed")
 end
 
--- Click country frame and confirm – NO +58 offset (works on all devices)
+-- Click country frame and confirm – with dynamic top offset
 local function clickCountryInGUI()
     local selectGui = LocalPlayer.PlayerGui:FindFirstChild("SelectCountry")
     if not selectGui then return false end
@@ -1027,9 +1027,16 @@ local function clickCountryInGUI()
     local countryButton = mainHolder:FindFirstChild(selectedCountry)
     if not countryButton or not countryButton.AbsolutePosition then return false end
 
-    -- Click the exact centre (AbsolutePosition is already the correct screen position)
+    -- Dynamic top offset for all devices
+    local topOffset = 0
+    pcall(function()
+        topOffset = game:GetService("GuiService"):GetGuiInset().Y
+    end)
+    debugLog("Top bar offset: " .. tostring(topOffset))
+
+    -- Click the exact centre (AbsolutePosition + topOffset)
     local x = countryButton.AbsolutePosition.X + (countryButton.AbsoluteSize.X / 2)
-    local y = countryButton.AbsolutePosition.Y + (countryButton.AbsoluteSize.Y / 2)
+    local y = countryButton.AbsolutePosition.Y + (countryButton.AbsoluteSize.Y / 2) + topOffset
     debugLog("Clicking country: " .. selectedCountry .. " at " .. x .. ", " .. y)
     VIM:SendMouseButtonEvent(x, y, 0, true, game, 1)
     task.wait(0.05)
@@ -1041,7 +1048,7 @@ local function clickCountryInGUI()
     -- Click Confirm
     if confirmButton and confirmButton.AbsolutePosition then
         local cx = confirmButton.AbsolutePosition.X + (confirmButton.AbsoluteSize.X / 2)
-        local cy = confirmButton.AbsolutePosition.Y + (confirmButton.AbsoluteSize.Y / 2)
+        local cy = confirmButton.AbsolutePosition.Y + (confirmButton.AbsoluteSize.Y / 2) + topOffset
         debugLog("Clicking Confirm at " .. cx .. ", " .. cy)
         VIM:SendMouseButtonEvent(cx, cy, 0, true, game, 1)
         task.wait(0.05)
