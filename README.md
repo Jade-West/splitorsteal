@@ -882,7 +882,7 @@ local actionsConfig = {
 }
 
 -- ============================================================
--- === AUTO COUNTRY SELECT (CLICK DefaultSlot1 FIX) ===========
+-- === AUTO COUNTRY SELECT (DYNAMIC OFFSET, FIXED MOBILE) =====
 -- ============================================================
 
 local countryOptions = {"USA", "Belgium", "Portugal", "England", "Brazil", "Argentina", "Spain", "France"}
@@ -1011,7 +1011,7 @@ local function safeCloseGUI()
     debugLog("GUI closed")
 end
 
--- Click country frame and confirm – with dynamic top offset
+-- Click country button and confirm – SAME dynamic offset as confirm button
 local function clickCountryInGUI()
     local selectGui = LocalPlayer.PlayerGui:FindFirstChild("SelectCountry")
     if not selectGui then return false end
@@ -1031,7 +1031,7 @@ local function clickCountryInGUI()
     local clickTarget = countryButton:FindFirstChild("DefaultSlot1")
     if not clickTarget or not clickTarget:IsA("GuiButton") then return false end
 
-    -- Dynamic top offset for all devices
+    -- Dynamic top offset (same as used for confirm button)
     local topOffset = 0
     pcall(function()
         topOffset = game:GetService("GuiService"):GetGuiInset().Y
@@ -1049,7 +1049,7 @@ local function clickCountryInGUI()
 
     task.wait(0.3)
 
-    -- Click Confirm
+    -- Click Confirm (already works)
     if confirmButton and confirmButton.AbsolutePosition then
         local cx = confirmButton.AbsolutePosition.X + (confirmButton.AbsoluteSize.X / 2)
         local cy = confirmButton.AbsolutePosition.Y + (confirmButton.AbsoluteSize.Y / 2) + topOffset
