@@ -22,34 +22,33 @@ local remotesToBlock = {
 
 local function blockRemote(remote)
     if not remote or not remote:IsA("RemoteEvent") then return end
-    local signal = remote.OnClientEvent
-    if not signal then return end
 
-    -- Try to intercept new connections safely
+    -- Build a fake signal that consumes all connections and never fires
+    local fakeSignal = {
+        Connect = function(self, callback)
+            print("[BLOCKED] " .. remote.Name)
+            return {
+                Connected = true,
+                Disconnect = function() end
+            }
+        end,
+        Wait = function() while true do task.wait() end end, -- optional, just in case
+    }
+
+    -- Attempt to replace the whole OnClientEvent property (kills old connections)
     local success, err = pcall(function()
-        if hookfunction then
-            -- Prefer hookfunction if available (most executors)
-            hookfunction(signal, "Connect", function(...)
-                print("[BLOCKED] " .. remote.Name)
-                return {
-                    Connected = true,
-                    Disconnect = function() end
-                }
-            end)
-        else
-            -- Direct override (works on many executors)
-            signal.Connect = function(self, callback)
-                print("[BLOCKED] " .. remote.Name)
-                return {
-                    Connected = true,
-                    Disconnect = function() end
-                }
-            end
-        end
+        rawset(remote, "OnClientEvent", fakeSignal)
     end)
 
     if not success then
-        print("[WARN] Could not block remote: " .. remote.Name .. " - " .. tostring(err))
+        -- Fallback: at least block new connections from now on
+        pcall(function()
+            local signal = remote.OnClientEvent
+            if signal then
+                signal.Connect = fakeSignal.Connect
+            end
+        end)
+        print("[WARN] Could not fully replace signal for " .. remote.Name .. ", only new connections blocked")
     end
 end
 
