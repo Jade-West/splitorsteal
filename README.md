@@ -464,9 +464,10 @@ local isSelling = false
 local rarityUIElements = {} 
 local lastSellActivity = 0
 
+-- ** "Brainrot Infinite" added to the list **
 local allRarities = {
     "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", 
-    "Event", "Secret", "Divine", "Cosmic", "Celestial", "Brainrot God"
+    "Event", "Secret", "Divine", "Cosmic", "Celestial", "Brainrot God", "Brainrot Infinite"
 }
 
 local AutoSellList = Instance.new("UIListLayout", AutoSellContainer)
