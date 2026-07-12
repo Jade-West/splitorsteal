@@ -464,7 +464,6 @@ local isSelling = false
 local rarityUIElements = {} 
 local lastSellActivity = 0
 
--- ** "Brainrot Infinite" added to the list **
 local allRarities = {
     "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", 
     "Event", "Secret", "Divine", "Cosmic", "Celestial", "Brainrot God", "Brainrot Infinite"
@@ -1159,6 +1158,64 @@ registerConnection(autoCountryBtn.MouseButton1Click:Connect(function()
 end))
 
 -- ============================================================
+-- === AUTO CHAIR EQUIP (WORLD CUP ↔ NORMAL) ==================
+-- ============================================================
+
+local autoChairEnabled = false
+
+local autoChairBtn = Instance.new("TextButton")
+autoChairBtn.Size = UDim2.new(0, 143, 0, 34)
+autoChairBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+autoChairBtn.Text = "Auto Chair: OFF"
+autoChairBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
+autoChairBtn.Font = Enum.Font.GothamSemibold
+autoChairBtn.TextSize = 11
+autoChairBtn.LayoutOrder = 1002
+autoChairBtn.Parent = AutoFarmContainer
+
+Instance.new("UICorner", autoChairBtn).CornerRadius = UDim.new(0, 6)
+local autoChairStroke = Instance.new("UIStroke", autoChairBtn)
+autoChairStroke.Color = Color3.fromRGB(50, 50, 60)
+
+local function setAutoChairEnabled(state)
+    if autoChairEnabled == state then return end
+    autoChairEnabled = state
+    if state then
+        autoChairBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 110)
+        autoChairBtn.TextColor3 = Color3.fromRGB(20, 35, 20)
+        autoChairBtn.Text = "Auto Chair: ON"
+        autoChairStroke.Color = Color3.fromRGB(0, 200, 110)
+
+        registerThread(function()
+            while autoChairEnabled do
+                local activeWeather = RS:FindFirstChild("ActiveWeather")
+                local isWorldCup = activeWeather and activeWeather.Value == "WorldCup"
+
+                local chairToEquip = isWorldCup and "Gold Trophy Chair" or "Infernal Gamer Chair"
+                pcall(function()
+                    RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("EquipChair"):FireServer(chairToEquip)
+                    debugLog("Equipped chair: " .. chairToEquip)
+                end)
+                task.wait(5) -- re-check every 5 seconds
+            end
+        end)
+    else
+        autoChairBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+        autoChairBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
+        autoChairBtn.Text = "Auto Chair: OFF"
+        autoChairStroke.Color = Color3.fromRGB(50, 50, 60)
+    end
+end
+
+registerConnection(autoChairBtn.MouseButton1Click:Connect(function()
+    setAutoChairEnabled(not autoChairEnabled)
+end))
+
+-- ============================================================
+-- END AUTO CHAIR
+-- ============================================================
+
+-- ============================================================
 -- END AUTO COUNTRY SELECT
 -- ============================================================
 
@@ -1477,6 +1534,9 @@ local function loadConfigData(name, autoEnableSell)
             selectedCountry = data.SelectedCountry
             countryPickerBtn.Text = selectedCountry:sub(1,3)
         end
+        if data.AutoChairEnabled ~= nil then
+            setAutoChairEnabled(data.AutoChairEnabled)
+        end
         
         if autoEnableSell and sellThreshold > 0 then
             autoSellEnabled = true
@@ -1529,6 +1589,7 @@ registerConnection(SaveBtn.MouseButton1Click:Connect(function()
         Rarities = selectedRarities,
         AutoCountryEnabled = autoCountryEnabled,
         SelectedCountry = selectedCountry,
+        AutoChairEnabled = autoChairEnabled,
     }
     
     pcall(function()
