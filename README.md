@@ -1158,10 +1158,12 @@ registerConnection(autoCountryBtn.MouseButton1Click:Connect(function()
 end))
 
 -- ============================================================
--- === AUTO CHAIR EQUIP (WORLD CUP ↔ NORMAL) ==================
+-- === AUTO CHAIR EQUIP (WORLD CUP ↔ NORMAL) WITH DROPDOWN ===
 -- ============================================================
 
 local autoChairEnabled = false
+local selectedNormalChair = "Infernal Gamer Chair"   -- default
+local normalChairOptions = {"Infernal Gamer Chair", "Fused Samurai Chair"}
 
 local autoChairBtn = Instance.new("TextButton")
 autoChairBtn.Size = UDim2.new(0, 143, 0, 34)
@@ -1177,6 +1179,63 @@ Instance.new("UICorner", autoChairBtn).CornerRadius = UDim.new(0, 6)
 local autoChairStroke = Instance.new("UIStroke", autoChairBtn)
 autoChairStroke.Color = Color3.fromRGB(50, 50, 60)
 
+-- Dropdown picker button (right side)
+local chairPickerBtn = Instance.new("TextButton")
+chairPickerBtn.Size = UDim2.new(0, 38, 1, -10)
+chairPickerBtn.Position = UDim2.new(1, -43, 0, 5)
+chairPickerBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+chairPickerBtn.Text = "Infernal"   -- short name
+chairPickerBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+chairPickerBtn.Font = Enum.Font.GothamBold
+chairPickerBtn.TextSize = 11
+chairPickerBtn.ZIndex = 5
+chairPickerBtn.Parent = autoChairBtn
+Instance.new("UICorner", chairPickerBtn).CornerRadius = UDim.new(0, 4)
+
+-- Dropdown list frame
+local chairListFrame = Instance.new("ScrollingFrame")
+chairListFrame.Size = UDim2.new(0, 100, 0, 80)
+chairListFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+chairListFrame.BorderSizePixel = 0
+chairListFrame.ScrollBarThickness = 2
+chairListFrame.ZIndex = 50
+chairListFrame.Visible = false
+chairListFrame.Parent = MainFrame
+
+local chairListLayout = Instance.new("UIListLayout", chairListFrame)
+chairListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Populate chair options
+for _, chairName in ipairs(normalChairOptions) do
+    local opt = Instance.new("TextButton", chairListFrame)
+    opt.Size = UDim2.new(1, 0, 0, 22)
+    opt.BackgroundTransparency = 1
+    opt.Text = chairName
+    opt.TextColor3 = Color3.fromRGB(200, 200, 200)
+    opt.Font = Enum.Font.GothamSemibold
+    opt.TextSize = 11
+    opt.ZIndex = 51
+    -- When clicked, update selection and close
+    registerConnection(opt.MouseButton1Click:Connect(function()
+        selectedNormalChair = chairName
+        chairPickerBtn.Text = chairName:match("^(%a+)") or chairName:sub(1,8)   -- first word or short name
+        chairListFrame.Visible = false
+    end))
+end
+
+-- Toggle dropdown visibility
+registerConnection(chairPickerBtn.MouseButton1Click:Connect(function()
+    chairListFrame.Visible = not chairListFrame.Visible
+    if chairListFrame.Visible then
+        local btnAbs = chairPickerBtn.AbsolutePosition
+        local mainAbs = MainFrame.AbsolutePosition
+        chairListFrame.Position = UDim2.new(0, btnAbs.X - mainAbs.X - 30, 0, btnAbs.Y - mainAbs.Y + chairPickerBtn.AbsoluteSize.Y + 2)
+    end
+end))
+
+-- Set initial picker text to match default
+chairPickerBtn.Text = selectedNormalChair:match("^(%a+)") or selectedNormalChair:sub(1,8)
+
 local function setAutoChairEnabled(state)
     if autoChairEnabled == state then return end
     autoChairEnabled = state
@@ -1191,7 +1250,7 @@ local function setAutoChairEnabled(state)
                 local activeWeather = RS:FindFirstChild("ActiveWeather")
                 local isWorldCup = activeWeather and activeWeather.Value == "WorldCup"
 
-                local chairToEquip = isWorldCup and "Gold Trophy Chair" or "Infernal Gamer Chair"
+                local chairToEquip = isWorldCup and "Gold Trophy Chair" or selectedNormalChair
                 pcall(function()
                     RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("EquipChair"):FireServer(chairToEquip)
                     debugLog("Equipped chair: " .. chairToEquip)
@@ -1212,11 +1271,7 @@ registerConnection(autoChairBtn.MouseButton1Click:Connect(function()
 end))
 
 -- ============================================================
--- END AUTO CHAIR
--- ============================================================
-
--- ============================================================
--- END AUTO COUNTRY SELECT
+-- END AUTO CHAIR WITH DROPDOWN
 -- ============================================================
 
 for _, config in ipairs(actionsConfig) do
@@ -1537,6 +1592,10 @@ local function loadConfigData(name, autoEnableSell)
         if data.AutoChairEnabled ~= nil then
             setAutoChairEnabled(data.AutoChairEnabled)
         end
+        if data.AutoChairNormalChair then
+            selectedNormalChair = data.AutoChairNormalChair
+            chairPickerBtn.Text = selectedNormalChair:match("^(%a+)") or selectedNormalChair:sub(1,8)
+        end
         
         if autoEnableSell and sellThreshold > 0 then
             autoSellEnabled = true
@@ -1590,6 +1649,7 @@ registerConnection(SaveBtn.MouseButton1Click:Connect(function()
         AutoCountryEnabled = autoCountryEnabled,
         SelectedCountry = selectedCountry,
         AutoChairEnabled = autoChairEnabled,
+        AutoChairNormalChair = selectedNormalChair,   -- NEW field
     }
     
     pcall(function()
