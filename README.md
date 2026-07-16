@@ -1244,7 +1244,7 @@ end))
 
 local autoChairEnabled = false
 local selectedNormalChair = "Infernal Gamer Chair"   -- default
-local normalChairOptions = {"Infernal Gamer Chair", "Fused Samurai Chair"}
+local normalChairOptions = {"Infernal Gamer Chair", "Fused Samurai Chair", "Samurai Chair"}
 
 local autoChairBtn = Instance.new("TextButton")
 autoChairBtn.Size = UDim2.new(0, 143, 0, 34)
