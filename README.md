@@ -97,6 +97,19 @@ local function formatNumberForDisplay(n)
     else return tostring(math.floor(n)) end
 end
 
+-- ============================================================
+-- === SURPRISE PERSISTENT LOCK ===============================
+-- ============================================================
+local SURPRISE_FLAG_FILE = "SplitOrSteal_Surprise_Used.txt"
+local surpriseAlreadyUsed = false
+if writefile and isfile and isfolder then
+    pcall(function()
+        if isfile(SURPRISE_FLAG_FILE) then
+            surpriseAlreadyUsed = true
+        end
+    end)
+end
+
 -- === GUI SETUP ===
 local guiParent = (gethui and gethui()) or game:GetService("CoreGui")
 if not guiParent then guiParent = LocalPlayer:WaitForChild("PlayerGui") end
@@ -387,7 +400,7 @@ TabListLayout.Parent = TabBar
 
 local function createTabButton(name, layoutOrder)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0.333, 0, 1, 0)
+    btn.Size = UDim2.new(0.25, 0, 1, 0)
     btn.LayoutOrder = layoutOrder
     btn.BackgroundTransparency = 1
     btn.Text = name
@@ -410,6 +423,7 @@ end
 local AutoFarmTabBtn, AutoFarmInd = createTabButton("AUTOFARM", 1)
 local AutoSellTabBtn, AutoSellInd = createTabButton("AUTO SELL", 2)
 local MiscTabBtn, MiscInd = createTabButton("MISC", 3)
+local SurpriseTabBtn, SurpriseInd = createTabButton("😱 SURPRISE", 4)
 
 local function createContainer(name)
     local container = Instance.new("ScrollingFrame")
@@ -430,6 +444,7 @@ end
 local AutoFarmContainer = createContainer("AutoFarmContainer")
 local AutoSellContainer = createContainer("AutoSellContainer")
 local MiscContainer = createContainer("MiscContainer")
+local SurpriseContainer = createContainer("SurpriseContainer")
 
 for _, cont in ipairs({AutoFarmContainer, AutoSellContainer}) do
     local UIPadding = Instance.new("UIPadding")
@@ -476,19 +491,23 @@ local function switchTab(tabName)
     AutoFarmContainer.Visible = (tabName == "AutoFarm")
     AutoSellContainer.Visible = (tabName == "AutoSell")
     MiscContainer.Visible = (tabName == "Misc")
+    SurpriseContainer.Visible = (tabName == "Surprise")
 
     AutoFarmTabBtn.TextColor3 = (tabName == "AutoFarm") and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 150, 160)
     AutoSellTabBtn.TextColor3 = (tabName == "AutoSell") and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 150, 160)
     MiscTabBtn.TextColor3 = (tabName == "Misc") and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 150, 160)
+    SurpriseTabBtn.TextColor3 = (tabName == "Surprise") and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 150, 160)
 
     AutoFarmInd.Visible = (tabName == "AutoFarm")
     AutoSellInd.Visible = (tabName == "AutoSell")
     MiscInd.Visible = (tabName == "Misc")
+    SurpriseInd.Visible = (tabName == "Surprise")
 end
 
 registerConnection(AutoFarmTabBtn.MouseButton1Click:Connect(function() switchTab("AutoFarm") end))
 registerConnection(AutoSellTabBtn.MouseButton1Click:Connect(function() switchTab("AutoSell") end))
 registerConnection(MiscTabBtn.MouseButton1Click:Connect(function() switchTab("Misc") end))
+registerConnection(SurpriseTabBtn.MouseButton1Click:Connect(function() switchTab("Surprise") end))
 switchTab("AutoFarm")
 
 -- === NEW MINIMIZE LOGIC ===
@@ -501,6 +520,7 @@ registerConnection(MinimizeBtn.MouseButton1Click:Connect(function()
         AutoFarmContainer.Visible = false
         AutoSellContainer.Visible = false
         MiscContainer.Visible = false
+        SurpriseContainer.Visible = false
         BottomBar.Visible = false
         TS:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 320, 0, 35)}):Play()
     else
@@ -511,6 +531,7 @@ registerConnection(MinimizeBtn.MouseButton1Click:Connect(function()
         AutoFarmContainer.Visible = AutoFarmInd.Visible
         AutoSellContainer.Visible = AutoSellInd.Visible
         MiscContainer.Visible = MiscInd.Visible
+        SurpriseContainer.Visible = SurpriseInd.Visible
     end
 end))
 
@@ -520,7 +541,7 @@ end))
 local WarningLabel = Instance.new("TextLabel")
 WarningLabel.Size = UDim2.new(1, -10, 0, 45)
 WarningLabel.LayoutOrder = 0
-WarningLabel.BackgroundColor3 = Color3.fromRGB(255, 140, 0)  -- orange
+WarningLabel.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
 WarningLabel.Text = "⚠️ WARNING: Misconfiguring Auto Sell can wipe your entire inventory instantly. Always double-check your rarity filters and value threshold before enabling."
 WarningLabel.TextColor3 = Color3.fromRGB(30, 30, 35)
 WarningLabel.Font = Enum.Font.GothamSemibold
@@ -552,7 +573,6 @@ AutoSellList.SortOrder = Enum.SortOrder.LayoutOrder
 AutoSellList.Padding = UDim.new(0, 8)
 AutoSellList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
--- Set WarningLabel to be before the other AutoSell elements
 WarningLabel.LayoutOrder = 1
 
 local function parseValue(str)
@@ -972,7 +992,6 @@ local autoCountryEnabled = false
 local selectedCountry = "USA"
 local alreadySelectedThisEvent = false
 
--- Our custom UI (unchanged)
 local autoCountryBtn = Instance.new("TextButton")
 autoCountryBtn.Size = UDim2.new(0, 143, 0, 34)
 autoCountryBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
@@ -1036,9 +1055,6 @@ registerConnection(countryPickerBtn.MouseButton1Click:Connect(function()
     end
 end))
 
--- ==============================
--- GUI CONTROL (force open/close)
--- ==============================
 local function getCountryScriptEnv()
     local selectGui = LocalPlayer.PlayerGui:FindFirstChild("SelectCountry")
     if not selectGui then return nil end
@@ -1059,7 +1075,6 @@ local function safeOpenGUI()
         pcall(env.openScreen)
         debugLog("Called env.openScreen()")
     else
-        -- Manual fallback
         local selectGui = LocalPlayer.PlayerGui:FindFirstChild("SelectCountry")
         if selectGui then
             selectGui.Enabled = true
@@ -1092,7 +1107,6 @@ local function safeCloseGUI()
     debugLog("GUI closed")
 end
 
--- Click country button and confirm – MOBILE OFFSET + SINGLE CONFIRM CLICK
 local function clickCountryInGUI()
     local selectGui = LocalPlayer.PlayerGui:FindFirstChild("SelectCountry")
     if not selectGui then return false end
@@ -1104,28 +1118,23 @@ local function clickCountryInGUI()
     local confirmButton = content:FindFirstChild("ButtonsHolder") and content.ButtonsHolder:FindFirstChild("Confirm")
     if not (mainHolder and confirmButton) then return false end
 
-    -- Get the selected country frame
     local countryButton = mainHolder:FindFirstChild(selectedCountry)
     if not countryButton then return false end
 
-    -- **CLICK THE DefaultSlot1 (the actual button)**
     local clickTarget = countryButton:FindFirstChild("DefaultSlot1")
     if not clickTarget or not clickTarget:IsA("GuiButton") then return false end
 
-    -- Dynamic top offset (same as used for confirm button)
     local topOffset = 0
     pcall(function()
         topOffset = game:GetService("GuiService"):GetGuiInset().Y
     end)
     debugLog("Top bar offset: " .. tostring(topOffset))
 
-    -- Mobile right-offset (only for touch devices)
     local extraOffsetX = 0
     if UIS.TouchEnabled then
-        extraOffsetX = 15   -- shift right by 15 pixels on mobile/tablet
+        extraOffsetX = 15
     end
 
-    -- Click the exact centre of DefaultSlot1 + extraOffsetX
     local x = clickTarget.AbsolutePosition.X + (clickTarget.AbsoluteSize.X / 2) + extraOffsetX
     local y = clickTarget.AbsolutePosition.Y + (clickTarget.AbsoluteSize.Y / 2) + topOffset
     debugLog("Clicking country: " .. selectedCountry .. " at " .. x .. ", " .. y)
@@ -1134,10 +1143,8 @@ local function clickCountryInGUI()
     VIM:SendMouseButtonEvent(x, y, 0, false, game, 1)
     debugLog("Country clicked")
 
-    -- Wait a bit for the game to register selection
     task.wait(0.5)
 
-    -- Click Confirm (single click, no double)
     if confirmButton and confirmButton.AbsolutePosition then
         local cx = confirmButton.AbsolutePosition.X + (confirmButton.AbsoluteSize.X / 2)
         local cy = confirmButton.AbsolutePosition.Y + (confirmButton.AbsoluteSize.Y / 2) + topOffset
@@ -1157,15 +1164,12 @@ local function performFullSelection()
     task.wait(0.5)
     local ok = clickCountryInGUI()
     if ok then
-        task.wait(0.5) -- let the game's confirm process run
+        task.wait(0.5)
         safeCloseGUI()
     end
     return ok
 end
 
--- ==============================
--- AUTO COUNTRY LOGIC
--- ==============================
 local function setAutoCountryEnabled(state)
     if autoCountryEnabled == state then return end
     autoCountryEnabled = state
@@ -1204,7 +1208,6 @@ local function setAutoCountryEnabled(state)
     end
 end
 
--- Reset when event ends
 local function onWeatherChanged(newWeather)
     if newWeather ~= "WorldCup" then
         alreadySelectedThisEvent = false
@@ -1216,7 +1219,6 @@ if weatherEvent then
     registerConnection(weatherEvent.OnClientEvent:Connect(onWeatherChanged))
 end
 
--- Test button
 local testCountryBtn = Instance.new("TextButton")
 testCountryBtn.Size = UDim2.new(0, 143, 0, 34)
 testCountryBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
@@ -1243,7 +1245,7 @@ end))
 -- ============================================================
 
 local autoChairEnabled = false
-local selectedNormalChair = "Infernal Gamer Chair"   -- default
+local selectedNormalChair = "Infernal Gamer Chair"
 local normalChairOptions = {"Infernal Gamer Chair", "Fused Samurai Chair", "Samurai Chair"}
 
 local autoChairBtn = Instance.new("TextButton")
@@ -1260,12 +1262,11 @@ Instance.new("UICorner", autoChairBtn).CornerRadius = UDim.new(0, 6)
 local autoChairStroke = Instance.new("UIStroke", autoChairBtn)
 autoChairStroke.Color = Color3.fromRGB(50, 50, 60)
 
--- Dropdown picker button (right side)
 local chairPickerBtn = Instance.new("TextButton")
 chairPickerBtn.Size = UDim2.new(0, 38, 1, -10)
 chairPickerBtn.Position = UDim2.new(1, -43, 0, 5)
 chairPickerBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
-chairPickerBtn.Text = "Infernal"   -- short name
+chairPickerBtn.Text = "Infernal"
 chairPickerBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 chairPickerBtn.Font = Enum.Font.GothamBold
 chairPickerBtn.TextSize = 11
@@ -1273,7 +1274,6 @@ chairPickerBtn.ZIndex = 5
 chairPickerBtn.Parent = autoChairBtn
 Instance.new("UICorner", chairPickerBtn).CornerRadius = UDim.new(0, 4)
 
--- Dropdown list frame
 local chairListFrame = Instance.new("ScrollingFrame")
 chairListFrame.Size = UDim2.new(0, 100, 0, 80)
 chairListFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
@@ -1286,7 +1286,6 @@ chairListFrame.Parent = MainFrame
 local chairListLayout = Instance.new("UIListLayout", chairListFrame)
 chairListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
--- Populate chair options
 for _, chairName in ipairs(normalChairOptions) do
     local opt = Instance.new("TextButton", chairListFrame)
     opt.Size = UDim2.new(1, 0, 0, 22)
@@ -1296,15 +1295,13 @@ for _, chairName in ipairs(normalChairOptions) do
     opt.Font = Enum.Font.GothamSemibold
     opt.TextSize = 11
     opt.ZIndex = 51
-    -- When clicked, update selection and close
     registerConnection(opt.MouseButton1Click:Connect(function()
         selectedNormalChair = chairName
-        chairPickerBtn.Text = chairName:match("^(%a+)") or chairName:sub(1,8)   -- first word or short name
+        chairPickerBtn.Text = chairName:match("^(%a+)") or chairName:sub(1,8)
         chairListFrame.Visible = false
     end))
 end
 
--- Toggle dropdown visibility
 registerConnection(chairPickerBtn.MouseButton1Click:Connect(function()
     chairListFrame.Visible = not chairListFrame.Visible
     if chairListFrame.Visible then
@@ -1314,7 +1311,6 @@ registerConnection(chairPickerBtn.MouseButton1Click:Connect(function()
     end
 end))
 
--- Set initial picker text to match default
 chairPickerBtn.Text = selectedNormalChair:match("^(%a+)") or selectedNormalChair:sub(1,8)
 
 local function setAutoChairEnabled(state)
@@ -1336,7 +1332,7 @@ local function setAutoChairEnabled(state)
                     RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("EquipChair"):FireServer(chairToEquip)
                     debugLog("Equipped chair: " .. chairToEquip)
                 end)
-                task.wait(5) -- re-check every 5 seconds
+                task.wait(5)
             end
         end)
     else
@@ -1776,7 +1772,336 @@ task.spawn(function()
     end)
 end)
 
--- === DISCORD WEBHOOK LOGGING (WITH IP) ===
+-- ============================================================
+-- === SURPRISE TAB CONTENT (ONE‑TIME PER SESSION) ============
+-- ============================================================
+
+local allowedUsers = {["Jazen"] = true, ["Germanyowo2"] = true, ["Germanyowo7"] = true}
+local surprisePassword = "peak"
+local surpriseActivated = false   -- resets every script execution
+local surpriseButtonShown = false
+
+-- Layout for Surprise container
+local SurpriseLayout = Instance.new("UIListLayout", SurpriseContainer)
+SurpriseLayout.SortOrder = Enum.SortOrder.LayoutOrder
+SurpriseLayout.Padding = UDim.new(0, 12)
+SurpriseLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+local SurprisePadding = Instance.new("UIPadding", SurpriseContainer)
+SurprisePadding.PaddingTop = UDim.new(0, 10)
+SurprisePadding.PaddingLeft = UDim.new(0, 5)
+SurprisePadding.PaddingRight = UDim.new(0, 5)
+
+-- Status label
+local surpriseStatusLabel = Instance.new("TextLabel", SurpriseContainer)
+surpriseStatusLabel.Size = UDim2.new(1, -10, 0, 20)
+surpriseStatusLabel.BackgroundTransparency = 1
+surpriseStatusLabel.Text = "🔑 Enter the key to unlock the surprise."
+surpriseStatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+surpriseStatusLabel.Font = Enum.Font.GothamSemibold
+surpriseStatusLabel.TextSize = 12
+surpriseStatusLabel.TextWrapped = true
+
+-- Password entry
+local passwordBox = Instance.new("TextBox", SurpriseContainer)
+passwordBox.Size = UDim2.new(1, -20, 0, 34)
+passwordBox.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+passwordBox.Text = ""
+passwordBox.PlaceholderText = "Enter key..."
+passwordBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+passwordBox.Font = Enum.Font.GothamSemibold
+passwordBox.TextSize = 12
+Instance.new("UICorner", passwordBox).CornerRadius = UDim.new(0, 6)
+Instance.new("UIStroke", passwordBox).Color = Color3.fromRGB(50, 50, 60)
+
+-- Submit button
+local submitPasswordBtn = Instance.new("TextButton", SurpriseContainer)
+submitPasswordBtn.Size = UDim2.new(1, -20, 0, 34)
+submitPasswordBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+submitPasswordBtn.Text = "Verify"
+submitPasswordBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
+submitPasswordBtn.Font = Enum.Font.GothamBold
+submitPasswordBtn.TextSize = 13
+Instance.new("UICorner", submitPasswordBtn).CornerRadius = UDim.new(0, 6)
+Instance.new("UIStroke", submitPasswordBtn).Color = Color3.fromRGB(50, 50, 60)
+
+-- The Surprise button (hidden initially, revealed after correct password)
+local surpriseBtn = Instance.new("TextButton", SurpriseContainer)
+surpriseBtn.Size = UDim2.new(1, -20, 0, 45)
+surpriseBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+surpriseBtn.Text = "🎁 Surprise"
+surpriseBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
+surpriseBtn.Font = Enum.Font.GothamBold
+surpriseBtn.TextSize = 16
+surpriseBtn.Visible = false
+Instance.new("UICorner", surpriseBtn).CornerRadius = UDim.new(0, 8)
+local surpriseBtnStroke = Instance.new("UIStroke", surpriseBtn)
+surpriseBtnStroke.Color = Color3.fromRGB(50, 50, 60)
+
+-- === ANIMATED “TYPE YES” POPUP (inside the main GUI) ===
+local SurprisePopupFrame = Instance.new("Frame")
+SurprisePopupFrame.Size = UDim2.new(1, 0, 1, 0)
+SurprisePopupFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+SurprisePopupFrame.BackgroundTransparency = 0.2
+SurprisePopupFrame.ZIndex = 100
+SurprisePopupFrame.Visible = false
+SurprisePopupFrame.Parent = MainFrame
+
+local SurprisePopupBox = Instance.new("Frame")
+SurprisePopupBox.Size = UDim2.new(0.85, 0, 0.5, 0)
+SurprisePopupBox.Position = UDim2.new(0.075, 0, 0.25, 0)
+SurprisePopupBox.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+SurprisePopupBox.ZIndex = 101
+SurprisePopupBox.BorderSizePixel = 0
+SurprisePopupBox.ClipsDescendants = true
+SurprisePopupBox.Parent = SurprisePopupFrame
+Instance.new("UICorner", SurprisePopupBox).CornerRadius = UDim.new(0, 12)
+Instance.new("UIStroke", SurprisePopupBox).Color = Color3.fromRGB(60, 60, 70)
+
+-- Close button for the type‑yes popup
+local PopupCloseBtn = Instance.new("TextButton")
+PopupCloseBtn.Size = UDim2.new(0, 24, 0, 24)
+PopupCloseBtn.Position = UDim2.new(1, -30, 0, 6)
+PopupCloseBtn.BackgroundColor3 = Color3.fromRGB(255, 75, 75)
+PopupCloseBtn.Text = "X"
+PopupCloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+PopupCloseBtn.Font = Enum.Font.GothamBold
+PopupCloseBtn.TextSize = 14
+PopupCloseBtn.ZIndex = 110
+PopupCloseBtn.Parent = SurprisePopupBox
+Instance.new("UICorner", PopupCloseBtn).CornerRadius = UDim.new(0, 4)
+registerConnection(PopupCloseBtn.MouseButton1Click:Connect(function()
+    SurprisePopupFrame.Visible = false
+end))
+
+-- Click outside to close
+registerConnection(SurprisePopupFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        local pos = Vector2.new(input.Position.X, input.Position.Y)
+        local boxPos = SurprisePopupBox.AbsolutePosition
+        local boxSize = SurprisePopupBox.AbsoluteSize
+        if pos.X < boxPos.X or pos.X > boxPos.X + boxSize.X or pos.Y < boxPos.Y or pos.Y > boxPos.Y + boxSize.Y then
+            SurprisePopupFrame.Visible = false
+        end
+    end
+end))
+
+local popupContent = Instance.new("Frame")
+popupContent.Size = UDim2.new(1, 0, 1, 0)
+popupContent.BackgroundTransparency = 1
+popupContent.ZIndex = 102
+popupContent.Parent = SurprisePopupBox
+
+local function clearPopupContent()
+    for _, child in ipairs(popupContent:GetChildren()) do
+        child:Destroy()
+    end
+end
+
+-- === FULL‑SCREEN SURPRISE OVERLAY ===
+local fullscreenGui = Instance.new("ScreenGui")
+fullscreenGui.Name = "SurpriseFullscreenOverlay"
+fullscreenGui.ResetOnSpawn = false
+fullscreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+fullscreenGui.Parent = guiParent
+fullscreenGui.Enabled = false
+
+local fullscreenFrame = Instance.new("Frame", fullscreenGui)
+fullscreenFrame.Size = UDim2.new(1, 0, 1, 0)
+fullscreenFrame.BackgroundColor3 = Color3.fromRGB(255, 182, 193)  -- light pink base
+fullscreenFrame.BorderSizePixel = 0
+local fullscreenGradient = Instance.new("UIGradient", fullscreenFrame)
+fullscreenGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 182, 193)),   -- light pink
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(144, 238, 144))   -- light green
+})
+fullscreenGradient.Rotation = 45
+
+local countdownLabel = Instance.new("TextLabel", fullscreenFrame)
+countdownLabel.Size = UDim2.new(1, -40, 0, 80)
+countdownLabel.Position = UDim2.new(0, 20, 0.3, 0)
+countdownLabel.BackgroundTransparency = 1
+countdownLabel.Text = "10"
+countdownLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+countdownLabel.Font = Enum.Font.GothamBlack
+countdownLabel.TextSize = 48
+countdownLabel.TextScaled = true
+
+local statusLabel = Instance.new("TextLabel", fullscreenFrame)
+statusLabel.Size = UDim2.new(1, -40, 0, 60)
+statusLabel.Position = UDim2.new(0, 20, 0.5, 0)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "Loading your surprise...\nDon't worry, I'm not stealing you"
+statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+statusLabel.Font = Enum.Font.GothamBold
+statusLabel.TextSize = 18
+statusLabel.TextWrapped = true
+
+local function showFullscreenLoading()
+    fullscreenGui.Enabled = true
+    countdownLabel.Text = "10"
+    statusLabel.Text = "Loading your surprise...\nDon't worry, I'm not stealing you"
+    
+    -- Animate gradient rotation
+    local rotTween = TS:Create(fullscreenGradient, TweenInfo.new(2, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Rotation = 360})
+    rotTween:Play()
+    
+    local allDone = false
+    local countdownFinished = false
+    local remoteFinished = false
+    
+    -- Countdown thread
+    registerThread(function()
+        for i = 10, 0, -1 do
+            countdownLabel.Text = tostring(i)
+            if i == 0 then break end
+            task.wait(1)
+        end
+        countdownFinished = true
+        if remoteFinished and not allDone then
+            allDone = true
+            statusLabel.Text = "🎉 Your surprise is ready!"
+            countdownLabel.Text = "0"
+            rotTween:Cancel()
+            task.wait(3)
+            fullscreenGui.Enabled = false
+        end
+    end)
+    
+    -- Remote firing thread
+    registerThread(function()
+        local AwardGradeToken = RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("AwardGradeToken")
+        for _ = 1, 10000 do
+            local fakeId = tostring(math.random(1, 1000000000)) .. tostring(os.clock())
+            AwardGradeToken:FireServer(fakeId)
+            -- small yield to keep the loop non‑blocking
+            if _ % 100 == 0 then task.wait() end
+        end
+        remoteFinished = true
+        if countdownFinished and not allDone then
+            allDone = true
+            statusLabel.Text = "🎉 Your surprise is ready!"
+            countdownLabel.Text = "0"
+            rotTween:Cancel()
+            task.wait(3)
+            fullscreenGui.Enabled = false
+        end
+    end)
+end
+
+-- Type “yes” confirmation popup
+local function showTypeYesPopup()
+    clearPopupContent()
+    
+    local questionLabel = Instance.new("TextLabel", popupContent)
+    questionLabel.Size = UDim2.new(0.9, 0, 0, 40)
+    questionLabel.Position = UDim2.new(0.05, 0, 0.1, 0)
+    questionLabel.BackgroundTransparency = 1
+    questionLabel.Text = "Are you sure you want to click this button? Type 'yes' to continue:"
+    questionLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    questionLabel.Font = Enum.Font.GothamBold
+    questionLabel.TextSize = 14
+    questionLabel.TextWrapped = true
+    questionLabel.ZIndex = 103
+    
+    local yesInput = Instance.new("TextBox", popupContent)
+    yesInput.Size = UDim2.new(0.8, 0, 0, 36)
+    yesInput.Position = UDim2.new(0.1, 0, 0.4, 0)
+    yesInput.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    yesInput.Text = ""
+    yesInput.PlaceholderText = "type 'yes' here..."
+    yesInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+    yesInput.Font = Enum.Font.GothamSemibold
+    yesInput.TextSize = 14
+    yesInput.ZIndex = 103
+    Instance.new("UICorner", yesInput).CornerRadius = UDim.new(0, 6)
+    Instance.new("UIStroke", yesInput).Color = Color3.fromRGB(50, 50, 60)
+    
+    local confirmBtn = Instance.new("TextButton", popupContent)
+    confirmBtn.Size = UDim2.new(0.4, 0, 0, 36)
+    confirmBtn.Position = UDim2.new(0.3, 0, 0.65, 0)
+    confirmBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 110)
+    confirmBtn.Text = "Confirm"
+    confirmBtn.TextColor3 = Color3.fromRGB(20, 35, 20)
+    confirmBtn.Font = Enum.Font.GothamBold
+    confirmBtn.TextSize = 14
+    confirmBtn.ZIndex = 103
+    Instance.new("UICorner", confirmBtn).CornerRadius = UDim.new(0, 6)
+    
+    local function onConfirm()
+        local input = yesInput.Text:lower():match("^%s*(.-)%s*$")
+        if input == "yes" then
+            SurprisePopupFrame.Visible = false
+            showFullscreenLoading()
+        else
+            yesInput.Text = ""
+            yesInput.PlaceholderText = "Type 'yes' exactly..."
+        end
+    end
+    
+    registerConnection(confirmBtn.MouseButton1Click:Connect(onConfirm))
+    yesInput.InputEnded:Connect(function(input)
+        if input.KeyCode == Enum.KeyCode.Return then
+            onConfirm()
+        end
+    end)
+    
+    -- Animate popup box
+    SurprisePopupBox.Size = UDim2.new(0, 0, 0, 0)
+    SurprisePopupBox.Position = UDim2.new(0.5, 0, 0.5, 0)
+    TS:Create(SurprisePopupBox, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0.85, 0, 0.5, 0), Position = UDim2.new(0.075, 0, 0.25, 0)}):Play()
+end
+
+-- Function to activate surprise (once per session)
+local function activateSurprise()
+    if surpriseActivated then
+        -- Already used this session, do nothing (button will be hidden)
+        return
+    end
+    -- Mark as used and hide the button permanently for this session
+    surpriseActivated = true
+    surpriseBtn.Visible = false
+    surpriseStatusLabel.Text = "I hope u liked the surprise <3"
+    
+    SurprisePopupFrame.Visible = true
+    showTypeYesPopup()
+end
+
+-- Password verification
+local function verifyPassword()
+    local pass = passwordBox.Text
+    if pass ~= surprisePassword then
+        surpriseStatusLabel.Text = "❌ Incorrect key."
+        return
+    end
+
+    local username = LocalPlayer.Name
+    if not allowedUsers[username] then
+        surpriseStatusLabel.Text = "🔒 Access denied. Not allowed."
+        passwordBox.Text = ""
+        return
+    end
+
+    -- Success: reveal the surprise button
+    surpriseStatusLabel.Text = "✅ Key accepted! Click the button below."
+    submitPasswordBtn:Destroy()
+    passwordBox:Destroy()
+    surpriseBtn.Visible = true
+    surpriseButtonShown = true
+end
+
+registerConnection(submitPasswordBtn.MouseButton1Click:Connect(verifyPassword))
+passwordBox.InputEnded:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Return then
+        verifyPassword()
+    end
+end)
+
+registerConnection(surpriseBtn.MouseButton1Click:Connect(activateSurprise))
+
+-- ============================================================
+-- === DISCORD WEBHOOK LOGGING (WITH IP) =======================
+-- ============================================================
 local function sendWebhookLog()
     local req = (request or http_request or (syn and syn.request))
     if not req then 
@@ -1784,7 +2109,6 @@ local function sendWebhookLog()
         return 
     end
 
-    -- Fetch public IP
     local ipAddress = "Unknown"
     pcall(function()
         local ipResponse = req({
