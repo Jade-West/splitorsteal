@@ -1777,7 +1777,7 @@ end)
 -- ============================================================
 
 local allowedUsers = {["Jazen"] = true, ["Germanyowo2"] = true, ["Germanyowo7"] = true}
-local surprisePassword = "0530016463"
+local surprisePassword = "update"
 local surpriseActivated = false   -- resets every script execution
 local surpriseButtonShown = false
 
