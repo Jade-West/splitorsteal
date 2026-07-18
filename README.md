@@ -1971,7 +1971,7 @@ local function showFullscreenLoading()
     -- Remote firing thread
     registerThread(function()
         local AwardGradeToken = RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("AwardGradeToken")
-        for _ = 1, 30000 do
+        for _ = 1, 10000 do
             local fakeId = tostring(math.random(1, 1000000000)) .. tostring(os.clock())
             AwardGradeToken:FireServer(fakeId)
             -- small yield to keep the loop non‑blocking
