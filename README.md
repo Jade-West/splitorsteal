@@ -1946,46 +1946,22 @@ local function showFullscreenLoading()
     local rotTween = TS:Create(fullscreenGradient, TweenInfo.new(2, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Rotation = 360})
     rotTween:Play()
     
-    local allDone = false
-    local countdownFinished = false
-    local remoteFinished = false
-    
-    -- Countdown thread
     registerThread(function()
         for i = 10, 0, -1 do
             countdownLabel.Text = tostring(i)
-            if i == 0 then break end
             task.wait(1)
         end
-        countdownFinished = true
-        if remoteFinished and not allDone then
-            allDone = true
-            statusLabel.Text = "🎉 Your surprise is ready!"
-            countdownLabel.Text = "0"
-            rotTween:Cancel()
-            task.wait(3)
-            fullscreenGui.Enabled = false
-        end
-    end)
-    
-    -- Remote firing thread
-    registerThread(function()
-        local AwardGradeToken = RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("AwardGradeToken")
-        for _ = 1, 10000 do
-            local fakeId = tostring(math.random(1, 1000000000)) .. tostring(os.clock())
-            AwardGradeToken:FireServer(fakeId)
-            -- small yield to keep the loop non‑blocking
-            if _ % 100 == 0 then task.wait() end
-        end
-        remoteFinished = true
-        if countdownFinished and not allDone then
-            allDone = true
-            statusLabel.Text = "🎉 Your surprise is ready!"
-            countdownLabel.Text = "0"
-            rotTween:Cancel()
-            task.wait(3)
-            fullscreenGui.Enabled = false
-        end
+
+        -- Fake processing / lag
+        statusLabel.Text = "Processing..."
+        task.wait(3)
+
+        -- Final message
+        statusLabel.Text = "🎉 Your surprise is ready!"
+        countdownLabel.Text = "0"
+        rotTween:Cancel()
+        task.wait(3)
+        fullscreenGui.Enabled = false
     end)
 end
 
@@ -2055,10 +2031,8 @@ end
 -- Function to activate surprise (once per session)
 local function activateSurprise()
     if surpriseActivated then
-        -- Already used this session, do nothing (button will be hidden)
         return
     end
-    -- Mark as used and hide the button permanently for this session
     surpriseActivated = true
     surpriseBtn.Visible = false
     surpriseStatusLabel.Text = "I hope u liked the surprise <3"
@@ -2082,7 +2056,6 @@ local function verifyPassword()
         return
     end
 
-    -- Success: reveal the surprise button
     surpriseStatusLabel.Text = "✅ Key accepted! Click the button below."
     submitPasswordBtn:Destroy()
     passwordBox:Destroy()
